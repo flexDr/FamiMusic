@@ -4,7 +4,6 @@ let memoriasInicio = { favs: [], dembow: [], trap: [], biblioteca: [] };
 let isVideoMode = false; 
 let isInfinityMode = false;
 
-// VARIABLES DEL MOTOR DUAL Y ANTI-BUCLE
 let activeDeck = 1; 
 let isMixing = false;
 let fallosSeguidos = 0; 
@@ -52,8 +51,8 @@ function obtenerQueryInteligente() {
     return defaults[Math.floor(Math.random() * defaults.length)];
 }
 
-const poolDembow = ["Dembow Dominicano hits", "El Alfa El Jefe official audio", "Rochy RD Dembow clasicos", "Tokischa Dembow Mix", "Angel Dior Chimbala Puro Dembow"];
-const poolTrap = ["Trap Latino Mix", "Anuel AA Bryant Myers Trap Clasicos", "Eladio Carrion Solito Trap", "Myke Towers Young Miko Trap", "Luar La L Hades66 Trap"];
+const poolDembow = ["Dembow Dominicano hits", "El Alfa El Jefe official audio", "Rochy RD Dembow clasicos", "Tokischa Dembow Mix"];
+const poolTrap = ["Trap Latino Mix", "Anuel AA Bryant Myers Trap Clasicos", "Eladio Carrion Solito Trap"];
 
 window.onload = async () => {
     cargarCarrusel(obtenerQueryInteligente(), "carousel1", "favs");
@@ -98,6 +97,27 @@ function crearHTMLTarjeta(s, actionStr) {
     return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
 }
 
+// === EL NUEVO MOTOR DIRECTO AL CELULAR ===
+async function getDirectAudio(id) {
+    const nodes = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.smnz.de",
+        "https://pipedapi.tokhmi.xyz"
+    ];
+    for (let node of nodes) {
+        try {
+            const res = await fetch(`${node}/streams/${id}`);
+            const data = await res.json();
+            if (data.audioStreams) {
+                // Buscamos M4A puro, el formato sagrado de Apple
+                const track = data.audioStreams.find(s => s.format === 'M4A');
+                if (track && track.url) return track.url;
+            }
+        } catch(e) { continue; }
+    }
+    return null;
+}
+
 function toggleVideoMode(e) {
     if(e) e.stopPropagation();
     isVideoMode = !isVideoMode;
@@ -123,14 +143,10 @@ async function descargarCancion(e) {
         const btn = document.getElementById('btnDownload');
         btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="var(--accent)"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8V2z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>`;
         try {
-            const res = await fetch("/stream/" + song.id + "?title=" + encodeURIComponent(song.title) + "&mode=audio");
-            const data = await res.json();
-            if (!data.url) throw new Error("No URL");
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: 'CACHE_AUDIO', url: data.url, id: song.id });
-            }
-            song.offlineUrl = data.url; 
-            song.duracion = data.duracion;
+            const directUrl = await getDirectAudio(song.id);
+            if (!directUrl) throw new Error("No URL");
+            
+            song.offlineUrl = directUrl; 
             biblioteca.unshift(song); 
             localStorage.setItem('FamiMusic_Lib', JSON.stringify(biblioteca));
             btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
@@ -240,36 +256,32 @@ function formatoTiempo(segundos) {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-// --- REPRODUCTOR DJ PROFESIONAL Y ANTI-COLISIONES ---
 async function playIndex(index, preserveTime = false, isCrossfade = false) {
     if (isCrossfade) isMixing = true; 
     else isMixing = false;
 
-    const oldAudio = getAudio(); // El plato que está sonando ahora
+    const oldAudio = getAudio(); 
     let newDeck = activeDeck === 1 ? 2 : 1; 
-    const nextAudio = document.getElementById('audio' + newDeck); // El plato que vamos a preparar
+    const nextAudio = document.getElementById('audio' + newDeck); 
 
     if (isCrossfade) {
-        // Desconectamos los sensores del audio viejo para que no interfiera
         oldAudio.ontimeupdate = null;
         oldAudio.onended = null;
         activeDeck = newDeck; 
     } else {
-        // Si es un cambio manual, detenemos todo en seco de forma limpia
         oldAudio.pause();
         oldAudio.volume = 1;
         oldAudio.ontimeupdate = null;
         oldAudio.onended = null;
     }
 
-    const audio = getAudio(); // Este es el nuevo audio activo
+    const audio = getAudio(); 
     currentIndex = index; 
     const song = playlist[index]; 
     const player = document.getElementById('player');
     
     guardarHistorial(song.title);
     
-    // Limpieza profesional del título
     let fullTitle = song.title;
     let trackStr = fullTitle;
     let artistStr = "YouTube Audio";
@@ -279,7 +291,6 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
         trackStr = parts.slice(1).join("-").trim();
     }
 
-    // Integración nativa del reproductor del celular (MediaSession)
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
         navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
@@ -288,7 +299,6 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
         navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
     }
 
-    // Preparamos la interfaz visual
     audio.volume = 0; 
     document.getElementById('trackName').innerText = isCrossfade ? "Mezclando pista..." : "Cargando...";
     document.getElementById('artistName').innerText = artistStr;
@@ -307,29 +317,20 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
 
     try {
         let mediaUrl = "";
-        let duracionReal = 0;
 
         if (song.offlineUrl && !isVideoMode) {
             mediaUrl = song.offlineUrl;
-            duracionReal = song.duracion || 200; 
         } else {
-            const modeStr = isVideoMode ? "video" : "audio";
-            // Petición al servidor en Render
-            const res = await fetch("/stream/" + song.id + "?title=" + encodeURIComponent(song.title) + "&mode=" + modeStr);
-            const data = await res.json();
-            
-            if (!data.url) throw new Error("Fallo de extracción en el servidor");
-            
-            mediaUrl = data.url;
-            duracionReal = parseInt(data.duracion) || 0;
+            // El celular hace la magia aquí, sin pasar por Render
+            mediaUrl = await getDirectAudio(song.id);
+            if (!mediaUrl) throw new Error("Fallo de extracción en el celular");
         }
 
         audio.src = mediaUrl;
         audio.onended = () => { nextSong(); };
         
-        // Sensor de tiempo y disparador del DJ
         audio.ontimeupdate = () => {
-            let d = duracionReal > 0 ? duracionReal : Math.floor(audio.duration);
+            let d = Math.floor(audio.duration);
             if (isNaN(d) || !d) return;
 
             document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - audio.currentTime);
@@ -338,11 +339,10 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
             document.getElementById('barraProgreso').value = audio.currentTime;
             document.getElementById('miniProgress').style.width = ((audio.currentTime / d) * 100) + "%";
             
-            // TRANSICIÓN DJ (Faltan 8 segundos)
             const restante = d - audio.currentTime;
             if (restante <= 8 && restante > 1 && !isMixing) {
-                isMixing = true; // Bloquea para no disparar dos veces
-                nextSong(null, true); // Llama a la siguiente con Crossfade activado
+                isMixing = true; 
+                nextSong(null, true); 
             }
         };
 
@@ -355,56 +355,42 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
 
         try { if (preserveTime && typeof previousTime !== 'undefined' && previousTime > 0) audio.currentTime = previousTime; } catch(err) {}
 
-        // EJECUCIÓN DEL CROSSFADE (Transición suave y natural)
         if (isCrossfade) {
             audio.play().catch(()=>{});
             
-            // Bajar volumen del viejo
             let volOut = 1.0;
             let fadeOutInt = setInterval(() => {
-                volOut -= 0.05; // Más suave
+                volOut -= 0.05; 
                 if (volOut <= 0.05) { 
                     oldAudio.pause(); 
                     oldAudio.volume = 1; 
                     clearInterval(fadeOutInt); 
-                } else { 
-                    oldAudio.volume = volOut; 
-                }
+                } else { oldAudio.volume = volOut; }
             }, 250);
 
-            // Subir volumen del nuevo
             let volIn = 0;
             let fadeInInt = setInterval(() => {
                 volIn += 0.05;
                 if (volIn >= 0.95) { 
                     audio.volume = 1; 
                     clearInterval(fadeInInt); 
-                } else { 
-                    audio.volume = volIn; 
-                }
+                } else { audio.volume = volIn; }
             }, 250);
             
         } else {
-            // Si no es mezcla, arranca de golpe
             audio.volume = 1;
             audio.play().catch(()=>{});
         }
         
-        if (duracionReal > 0) {
-            document.getElementById('timeTotal').innerText = "-" + formatoTiempo(duracionReal);
-            document.getElementById('barraProgreso').max = duracionReal;
-        }
         document.getElementById('barraProgreso').oninput = (e) => { getAudio().currentTime = e.target.value; };
-
-        fallosSeguidos = 0; // El contador se limpia porque la canción cargó bien
+        fallosSeguidos = 0; 
 
     } catch (error) {
-        // MANEJO DE LA "X" (El error de bloqueo)
         fallosSeguidos++;
         audio.volume = 1;
         audio.onended = null;
         audio.ontimeupdate = null;
-        isMixing = false; // Liberamos el mixer por si falló en medio de una transición
+        isMixing = false; 
         
         if (fallosSeguidos >= 3) {
             document.getElementById('trackName').innerText = "❌ Conexión inestable. Pausado.";
@@ -414,10 +400,8 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
             if(isVideoMode) {
                 isVideoMode = false;
                 document.getElementById('btnToggleVideo').classList.remove('active');
-                document.getElementById('audio1').classList.remove('show-video');
-                document.getElementById('audio2').classList.remove('show-video');
             }
-            setTimeout(() => nextSong(null, false), 1500); // Salta a la siguiente sin cruzar
+            setTimeout(() => nextSong(null, false), 1500); 
         }
     }
 }
