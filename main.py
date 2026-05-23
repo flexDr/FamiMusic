@@ -23,7 +23,6 @@ def home():
 @app.get("/search/{q}")
 def search(q: str):
     busqueda_limpia = f"{q} official audio"
-    # yt-dlp solo lo usamos para buscar los nombres, que es súper rápido y no lo bloquean
     with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
         info = ydl.extract_info(f"ytsearch15:{busqueda_limpia}", download=False)
         resultados = []
@@ -37,38 +36,34 @@ def search(q: str):
                     })
         return resultados
 
-def get_invidious_stream(video_id):
-    # Lista ampliada de servidores europeos de alta velocidad
+def get_piped_stream(video_id):
+    # La red Piped: Más rápida, más estable y entrega el formato M4A exacto para el iPhone
     instances = [
-        "https://inv.tux.pizza",
-        "https://invidious.nerdvpn.de",
-        "https://inv.nadeko.net",
-        "https://invidious.jing.rocks",
-        "https://invidious.fdn.fr"
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.smnz.de",
+        "https://pipedapi.adminforge.de"
     ]
     for inst in instances:
         try:
-            req = urllib.request.Request(f"{inst}/api/v1/videos/{video_id}", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=3, context=ctx) as response:
+            req = urllib.request.Request(f"{inst}/streams/{video_id}", headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
                 data = json.loads(response.read().decode())
-                if 'adaptiveFormats' in data:
-                    for f in data['adaptiveFormats']:
-                        if 'audio/mp4' in f.get('type', '') or 'm4a' in f.get('type', ''):
-                            url = f['url']
-                            if url.startswith('/'): url = inst + url
-                            # Esto es clave: obliga al servidor europeo a proxy la música para evadir CORS
-                            if 'local=true' not in url: url += '&local=true' if '?' in url else '?local=true'
-                            return url, data.get('lengthSeconds', 0)
+                if 'audioStreams' in data:
+                    # Filtramos específicamente el M4A para complacer a Apple
+                    for f in data['audioStreams']:
+                        if f.get('format') == 'M4A':
+                            return f['url'], 0
         except Exception:
             continue
     return None, 0
 
 @app.get("/stream/{id}")
 def stream(id: str, title: str = "", mode: str = "audio"):
-    # Saltamos el bloqueo de EE.UU. y vamos directo al túnel europeo en 1 segundo
-    url_inv, segundos = get_invidious_stream(id)
+    # Tu servidor de EE.UU. conecta directo con la red Piped
+    url_piped, dur = get_piped_stream(id)
     
-    if url_inv:
-        return {"url": url_inv, "duracion": segundos}
+    if url_piped:
+        return {"url": url_piped, "duracion": dur}
         
     return {"url": None}
