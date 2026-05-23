@@ -1,30 +1,49 @@
 let playlist = []; 
 let currentIndex = -1; 
 let memoriasInicio = { favs: [], dembow: [], trap: [], biblioteca: [] }; 
-let isVideoMode = false; 
 let isInfinityMode = false;
 
+// --- EL CABALLO DE TROYA (REPRODUCTORES INVISIBLES YOUTUBE) ---
+const ytCont1 = document.createElement('div');
+ytCont1.style.position = 'absolute'; ytCont1.style.opacity = '0'; ytCont1.style.width = '1px'; ytCont1.style.height = '1px'; ytCont1.style.pointerEvents = 'none';
+ytCont1.id = 'yt1';
+document.body.appendChild(ytCont1);
+
+const ytCont2 = document.createElement('div');
+ytCont2.style.position = 'absolute'; ytCont2.style.opacity = '0'; ytCont2.style.width = '1px'; ytCont2.style.height = '1px'; ytCont2.style.pointerEvents = 'none';
+ytCont2.id = 'yt2';
+document.body.appendChild(ytCont2);
+
+let ytPlayer1, ytPlayer2;
+let ytReady = false;
 let activeDeck = 1; 
 let isMixing = false;
-let fallosSeguidos = 0; 
+let timeUpdateInterval;
 
-function getAudio() { return document.getElementById('audio' + activeDeck); }
+// Inyectar el código oficial de YouTube en tu app
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+const firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-let audioDesbloqueado = false;
-document.addEventListener('touchstart', function() {
-    if (!audioDesbloqueado) {
-        document.getElementById('audio1').play().then(() => document.getElementById('audio1').pause()).catch(() => {});
-        document.getElementById('audio2').play().then(() => document.getElementById('audio2').pause()).catch(() => {});
-        audioDesbloqueado = true;
-    }
-}, { once: true });
+window.onYouTubeIframeAPIReady = function() {
+    ytPlayer1 = new YT.Player('yt1', {
+        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+        events: { 'onStateChange': (e) => handleYTState(e, 1) }
+    });
+    ytPlayer2 = new YT.Player('yt2', {
+        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+        events: { 'onStateChange': (e) => handleYTState(e, 2) }
+    });
+    ytReady = true;
+}
 
-document.addEventListener("visibilitychange", () => {
-    const audio = getAudio();
-    if (document.hidden && isVideoMode && !audio.paused) {
-        setTimeout(() => { audio.play().catch(()=>{}); }, 50);
-    }
-});
+function handleYTState(event, deckNum) {
+    if (event.data === YT.PlayerState.ENDED && activeDeck === deckNum) { nextSong(); }
+}
+
+function getActivePlayer() { return activeDeck === 1 ? ytPlayer1 : ytPlayer2; }
+function getOldPlayer() { return activeDeck === 1 ? ytPlayer2 : ytPlayer1; }
 
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
@@ -97,63 +116,18 @@ function crearHTMLTarjeta(s, actionStr) {
     return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
 }
 
-// === EL NUEVO MOTOR DIRECTO AL CELULAR ===
-async function getDirectAudio(id) {
-    const nodes = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.smnz.de",
-        "https://pipedapi.tokhmi.xyz"
-    ];
-    for (let node of nodes) {
-        try {
-            const res = await fetch(`${node}/streams/${id}`);
-            const data = await res.json();
-            if (data.audioStreams) {
-                // Buscamos M4A puro, el formato sagrado de Apple
-                const track = data.audioStreams.find(s => s.format === 'M4A');
-                if (track && track.url) return track.url;
-            }
-        } catch(e) { continue; }
-    }
-    return null;
-}
-
-function toggleVideoMode(e) {
-    if(e) e.stopPropagation();
-    isVideoMode = !isVideoMode;
-    const btn = document.getElementById('btnToggleVideo');
-    if (isVideoMode) {
-        btn.classList.add('active');
-        getAudio().classList.add('show-video');
-    } else {
-        btn.classList.remove('active');
-        document.getElementById('audio1').classList.remove('show-video');
-        document.getElementById('audio2').classList.remove('show-video');
-    }
-    if (currentIndex !== -1) playIndex(currentIndex, true, false); 
-}
-
-async function descargarCancion(e) {
+// Descargar canción ahora funciona como un botón de "Favoritos" para evitar bloqueos
+function descargarCancion(e) {
     if(e) e.stopPropagation();
     if(currentIndex === -1) return;
     const song = playlist[currentIndex];
     let biblioteca = JSON.parse(localStorage.getItem('FamiMusic_Lib')) || [];
 
     if(!biblioteca.some(s => s.id === song.id)) {
-        const btn = document.getElementById('btnDownload');
-        btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="var(--accent)"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8V2z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>`;
-        try {
-            const directUrl = await getDirectAudio(song.id);
-            if (!directUrl) throw new Error("No URL");
-            
-            song.offlineUrl = directUrl; 
-            biblioteca.unshift(song); 
-            localStorage.setItem('FamiMusic_Lib', JSON.stringify(biblioteca));
-            btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
-            cargarBiblioteca();
-        } catch(error) {
-            btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
-        }
+        biblioteca.unshift(song); 
+        localStorage.setItem('FamiMusic_Lib', JSON.stringify(biblioteca));
+        document.getElementById('btnDownload').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="var(--accent)"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+        cargarBiblioteca();
     }
 }
 
@@ -162,7 +136,7 @@ function cargarBiblioteca() {
     const libView = document.getElementById('libraryView');
     memoriasInicio['biblioteca'] = biblioteca; 
     if (biblioteca.length === 0) {
-        libView.innerHTML = `<div style="padding: 40px 20px; text-align: center; color: #888;"><p>Las canciones descargadas estarán aquí.</p></div>`;
+        libView.innerHTML = `<div style="padding: 40px 20px; text-align: center; color: #888;"><p>Tus canciones guardadas estarán aquí.</p></div>`;
         return;
     }
     libView.innerHTML = `<div class="grid">${biblioteca.map((s, index) => {
@@ -256,29 +230,26 @@ function formatoTiempo(segundos) {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-async function playIndex(index, preserveTime = false, isCrossfade = false) {
+// --- EL NUEVO MOTOR DE REPRODUCCIÓN OFICIAL ---
+function playIndex(index, preserveTime = false, isCrossfade = false) {
+    if (!ytReady) {
+        document.getElementById('trackName').innerText = "Iniciando motor...";
+        setTimeout(() => playIndex(index, preserveTime, isCrossfade), 1000);
+        return;
+    }
+
     if (isCrossfade) isMixing = true; 
     else isMixing = false;
 
-    const oldAudio = getAudio(); 
-    let newDeck = activeDeck === 1 ? 2 : 1; 
-    const nextAudio = document.getElementById('audio' + newDeck); 
+    const oldPlayer = getActivePlayer(); 
+    activeDeck = activeDeck === 1 ? 2 : 1; 
+    const newPlayer = getActivePlayer(); 
 
-    if (isCrossfade) {
-        oldAudio.ontimeupdate = null;
-        oldAudio.onended = null;
-        activeDeck = newDeck; 
-    } else {
-        oldAudio.pause();
-        oldAudio.volume = 1;
-        oldAudio.ontimeupdate = null;
-        oldAudio.onended = null;
-    }
+    if (!isCrossfade && oldPlayer && oldPlayer.stopVideo) { oldPlayer.stopVideo(); }
 
-    const audio = getAudio(); 
     currentIndex = index; 
     const song = playlist[index]; 
-    const player = document.getElementById('player');
+    const playerUI = document.getElementById('player');
     
     guardarHistorial(song.title);
     
@@ -293,14 +264,13 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
-        navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
-        navigator.mediaSession.setActionHandler('pause', () => { document.getElementById('audio1').pause(); document.getElementById('audio2').pause(); actualizarBotonesPlay(svgPlay); });
+        navigator.mediaSession.setActionHandler('play', () => { getActivePlayer().playVideo(); actualizarBotonesPlay(svgPause); });
+        navigator.mediaSession.setActionHandler('pause', () => { getActivePlayer().pauseVideo(); actualizarBotonesPlay(svgPlay); });
         navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
         navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
     }
 
-    audio.volume = 0; 
-    document.getElementById('trackName').innerText = isCrossfade ? "Mezclando pista..." : "Cargando...";
+    document.getElementById('trackName').innerText = isCrossfade ? "Mezclando pista..." : trackStr;
     document.getElementById('artistName').innerText = artistStr;
     document.getElementById('hudImg').src = song.thumb;
     document.getElementById('ambientBg').src = song.thumb; 
@@ -313,115 +283,67 @@ async function playIndex(index, preserveTime = false, isCrossfade = false) {
     }
     
     actualizarBotonesPlay(svgPause);
-    player.classList.add('active');
+    playerUI.classList.add('active');
 
-    try {
-        let mediaUrl = "";
+    // Cargar directamente desde YouTube oficial
+    newPlayer.setVolume(isCrossfade ? 0 : 100);
+    newPlayer.loadVideoById(song.id);
+    
+    clearInterval(timeUpdateInterval);
+    timeUpdateInterval = setInterval(() => {
+        if (newPlayer && newPlayer.getPlayerState && newPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+            let curr = newPlayer.getCurrentTime();
+            let d = newPlayer.getDuration();
+            if(!d) return;
 
-        if (song.offlineUrl && !isVideoMode) {
-            mediaUrl = song.offlineUrl;
-        } else {
-            // El celular hace la magia aquí, sin pasar por Render
-            mediaUrl = await getDirectAudio(song.id);
-            if (!mediaUrl) throw new Error("Fallo de extracción en el celular");
-        }
-
-        audio.src = mediaUrl;
-        audio.onended = () => { nextSong(); };
-        
-        audio.ontimeupdate = () => {
-            let d = Math.floor(audio.duration);
-            if (isNaN(d) || !d) return;
-
-            document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - audio.currentTime);
+            document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - curr);
             document.getElementById('barraProgreso').max = d;
-            document.getElementById('timeActual').innerText = formatoTiempo(audio.currentTime);
-            document.getElementById('barraProgreso').value = audio.currentTime;
-            document.getElementById('miniProgress').style.width = ((audio.currentTime / d) * 100) + "%";
+            document.getElementById('timeActual').innerText = formatoTiempo(curr);
+            document.getElementById('barraProgreso').value = curr;
+            document.getElementById('miniProgress').style.width = ((curr / d) * 100) + "%";
             
-            const restante = d - audio.currentTime;
+            // EL DJ sigue vivo
+            const restante = d - curr;
             if (restante <= 8 && restante > 1 && !isMixing) {
                 isMixing = true; 
                 nextSong(null, true); 
             }
-        };
-
-        document.getElementById('trackName').innerText = trackStr;
-        
-        if (isVideoMode) {
-            oldAudio.classList.remove('show-video');
-            audio.classList.add('show-video');
         }
+    }, 500);
 
-        try { if (preserveTime && typeof previousTime !== 'undefined' && previousTime > 0) audio.currentTime = previousTime; } catch(err) {}
+    if (isCrossfade) {
+        let volOut = 100;
+        let fadeOutInt = setInterval(() => {
+            volOut -= 5; 
+            if (volOut <= 5) { 
+                oldPlayer.stopVideo(); 
+                clearInterval(fadeOutInt); 
+            } else { oldPlayer.setVolume(volOut); }
+        }, 250);
 
-        if (isCrossfade) {
-            audio.play().catch(()=>{});
-            
-            let volOut = 1.0;
-            let fadeOutInt = setInterval(() => {
-                volOut -= 0.05; 
-                if (volOut <= 0.05) { 
-                    oldAudio.pause(); 
-                    oldAudio.volume = 1; 
-                    clearInterval(fadeOutInt); 
-                } else { oldAudio.volume = volOut; }
-            }, 250);
-
-            let volIn = 0;
-            let fadeInInt = setInterval(() => {
-                volIn += 0.05;
-                if (volIn >= 0.95) { 
-                    audio.volume = 1; 
-                    clearInterval(fadeInInt); 
-                } else { audio.volume = volIn; }
-            }, 250);
-            
-        } else {
-            audio.volume = 1;
-            audio.play().catch(()=>{});
-        }
-        
-        document.getElementById('barraProgreso').oninput = (e) => { getAudio().currentTime = e.target.value; };
-        fallosSeguidos = 0; 
-
-    } catch (error) {
-        fallosSeguidos++;
-        audio.volume = 1;
-        audio.onended = null;
-        audio.ontimeupdate = null;
-        isMixing = false; 
-        
-        if (fallosSeguidos >= 3) {
-            document.getElementById('trackName').innerText = "❌ Conexión inestable. Pausado.";
-            actualizarBotonesPlay(svgPlay);
-        } else {
-            document.getElementById('trackName').innerText = "⚠️ Buscando fuente limpia...";
-            if(isVideoMode) {
-                isVideoMode = false;
-                document.getElementById('btnToggleVideo').classList.remove('active');
-            }
-            setTimeout(() => nextSong(null, false), 1500); 
-        }
+        let volIn = 0;
+        let fadeInInt = setInterval(() => {
+            volIn += 5;
+            if (volIn >= 95) { 
+                newPlayer.setVolume(100); 
+                clearInterval(fadeInInt); 
+            } else { newPlayer.setVolume(volIn); }
+        }, 250);
     }
-}
 
-function actualizarBotonesPlay(svgString) { 
-    document.getElementById('btnPlayPauseMini').innerHTML = svgString; 
-    document.getElementById('btnPlayPauseBig').innerHTML = svgString; 
+    document.getElementById('barraProgreso').oninput = (e) => { newPlayer.seekTo(e.target.value, true); };
 }
 
 function togglePlay(e) {
     if(e) e.stopPropagation();
-    const audio1 = document.getElementById('audio1');
-    const audio2 = document.getElementById('audio2');
-    const mainAudio = getAudio();
-    if (mainAudio.paused) { 
-        mainAudio.play(); 
-        actualizarBotonesPlay(svgPause); 
-    } else { 
-        audio1.pause(); 
-        audio2.pause(); 
-        actualizarBotonesPlay(svgPlay); 
+    const p = getActivePlayer();
+    if (p && p.getPlayerState) {
+        if (p.getPlayerState() === YT.PlayerState.PLAYING) { 
+            p.pauseVideo(); 
+            actualizarBotonesPlay(svgPlay); 
+        } else { 
+            p.playVideo(); 
+            actualizarBotonesPlay(svgPause); 
+        }
     }
 }
