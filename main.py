@@ -22,6 +22,7 @@ def home():
 
 @app.get("/search/{q}")
 def search(q: str):
+    # Seguimos usando yt-dlp solo para buscar los nombres (eso nunca lo bloquean)
     busqueda_limpia = f"{q} official audio"
     with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
         info = ydl.extract_info(f"ytsearch15:{busqueda_limpia}", download=False)
@@ -36,34 +37,32 @@ def search(q: str):
                     })
         return resultados
 
-def get_piped_stream(video_id):
-    # La red Piped: Más rápida, más estable y entrega el formato M4A exacto para el iPhone
-    instances = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.tokhmi.xyz",
-        "https://pipedapi.smnz.de",
-        "https://pipedapi.adminforge.de"
-    ]
-    for inst in instances:
-        try:
-            req = urllib.request.Request(f"{inst}/streams/{video_id}", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
-                data = json.loads(response.read().decode())
-                if 'audioStreams' in data:
-                    # Filtramos específicamente el M4A para complacer a Apple
-                    for f in data['audioStreams']:
-                        if f.get('format') == 'M4A':
-                            return f['url'], 0
-        except Exception:
-            continue
-    return None, 0
-
 @app.get("/stream/{id}")
 def stream(id: str, title: str = "", mode: str = "audio"):
-    # Tu servidor de EE.UU. conecta directo con la red Piped
-    url_piped, dur = get_piped_stream(id)
+    # EL NUEVO MOTOR: COBALT API (Adiós a los bloqueos)
+    url_video = f"https://www.youtube.com/watch?v={id}"
+    cobalt_api = "https://api.cobalt.tools/api/json"
     
-    if url_piped:
-        return {"url": url_piped, "duracion": dur}
+    # Le ordenamos a la API que nos entregue un MP3 perfecto para Apple
+    data = json.dumps({
+        "url": url_video,
+        "isAudioOnly": True,
+        "aFormat": "mp3" 
+    }).encode('utf-8')
+    
+    req = urllib.request.Request(cobalt_api, data=data, headers={
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+    })
+    
+    try:
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            if 'url' in result:
+                # El enlace directo de Cobalt va hacia tu iPhone
+                return {"url": result['url'], "duracion": 0}
+    except Exception as e:
+        print(f"Error de Cobalt: {e}")
         
     return {"url": None}
