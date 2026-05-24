@@ -16,6 +16,33 @@ document.addEventListener('touchstart', function() {
     }
 }, { once: true });
 
+// --- LA INTELIGENCIA ARTIFICIAL DEL DJ ---
+function anunciarDJ(cancion, artista, esMezcla) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel(); // Corta si estaba hablando antes
+    
+    let frasesInicio = [
+        `¡Y ahora, sube el volumen porque viene ${cancion}!`,
+        `¡Activo! Escuchando ${cancion} de ${artista}.`,
+        `¡Soltando ${cancion} en Fami Music!`,
+        `¡Atención! Entra ${cancion}.`
+    ];
+    let frasesMezcla = [
+        `¡Pegadito y sin pausas, suena ${cancion}!`,
+        `¡Cambiando el ritmo con ${cancion}!`,
+        `¡Sube la cabina, nos fuimos con ${cancion}!`,
+        `¡Y no le bajamos! Sigue ${cancion}.`
+    ];
+    
+    let texto = esMezcla ? frasesMezcla[Math.floor(Math.random() * frasesMezcla.length)] : frasesInicio[Math.floor(Math.random() * frasesInicio.length)];
+    
+    let msg = new SpeechSynthesisUtterance(texto);
+    msg.lang = 'es-DO'; // Acento Español (Tratará de usar dominicano o latino)
+    msg.rate = 1.15; // Velocidad de locutor
+    msg.pitch = 1.05; // Tono animado
+    window.speechSynthesis.speak(msg);
+}
+
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
@@ -78,7 +105,7 @@ function switchTab(tabId, btnElement) {
 
 function crearHTMLTarjeta(s, actionStr) {
     let title = s.title;
-    let artist = "SoundCloud Audio";
+    let artist = "Fami Music";
     if (s.title.includes("-")) {
         let parts = s.title.split("-");
         artist = parts[0].trim();
@@ -220,7 +247,7 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     guardarHistorial(song.title);
     
     let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
-    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "SoundCloud";
+    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube Oficial";
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
@@ -235,6 +262,9 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     document.getElementById('hudImg').src = song.thumb;
     document.getElementById('ambientBg').src = song.thumb; 
     
+    // Disparamos la IA del DJ
+    anunciarDJ(trackStr, artistStr, isCrossfade);
+    
     if(!preserveTime && !isCrossfade) {
         document.getElementById('timeActual').innerText = "0:00";
         document.getElementById('timeTotal').innerText = "-0:00";
@@ -245,8 +275,8 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     actualizarBotonesPlay(svgPause);
     player.classList.add('active');
 
-    // LA RUTA CORRECTA PARA SOUNDCLOUD
-    audio.src = "/stream?url=" + encodeURIComponent(song.id);
+    // Conecta al servidor híbrido (YouTube ID + Título para buscar en SoundCloud)
+    audio.src = "/stream?title=" + encodeURIComponent(song.title) + "&id=" + song.id;
     
     audio.onended = () => { nextSong(); };
     
