@@ -2,48 +2,19 @@ let playlist = [];
 let currentIndex = -1; 
 let memoriasInicio = { favs: [], dembow: [], trap: [], biblioteca: [] }; 
 let isInfinityMode = false;
-
-// --- EL CABALLO DE TROYA (REPRODUCTORES INVISIBLES YOUTUBE) ---
-const ytCont1 = document.createElement('div');
-ytCont1.style.position = 'absolute'; ytCont1.style.opacity = '0'; ytCont1.style.width = '1px'; ytCont1.style.height = '1px'; ytCont1.style.pointerEvents = 'none';
-ytCont1.id = 'yt1';
-document.body.appendChild(ytCont1);
-
-const ytCont2 = document.createElement('div');
-ytCont2.style.position = 'absolute'; ytCont2.style.opacity = '0'; ytCont2.style.width = '1px'; ytCont2.style.height = '1px'; ytCont2.style.pointerEvents = 'none';
-ytCont2.id = 'yt2';
-document.body.appendChild(ytCont2);
-
-let ytPlayer1, ytPlayer2;
-let ytReady = false;
 let activeDeck = 1; 
 let isMixing = false;
-let timeUpdateInterval;
 
-// Inyectar el código oficial de YouTube en tu app
-const tag = document.createElement('script');
-tag.src = "https://www.youtube.com/iframe_api";
-const firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+function getAudio() { return document.getElementById('audio' + activeDeck); }
 
-window.onYouTubeIframeAPIReady = function() {
-    ytPlayer1 = new YT.Player('yt1', {
-        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
-        events: { 'onStateChange': (e) => handleYTState(e, 1) }
-    });
-    ytPlayer2 = new YT.Player('yt2', {
-        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
-        events: { 'onStateChange': (e) => handleYTState(e, 2) }
-    });
-    ytReady = true;
-}
-
-function handleYTState(event, deckNum) {
-    if (event.data === YT.PlayerState.ENDED && activeDeck === deckNum) { nextSong(); }
-}
-
-function getActivePlayer() { return activeDeck === 1 ? ytPlayer1 : ytPlayer2; }
-function getOldPlayer() { return activeDeck === 1 ? ytPlayer2 : ytPlayer1; }
+let audioDesbloqueado = false;
+document.addEventListener('touchstart', function() {
+    if (!audioDesbloqueado) {
+        document.getElementById('audio1').play().catch(() => {});
+        document.getElementById('audio2').play().catch(() => {});
+        audioDesbloqueado = true;
+    }
+}, { once: true });
 
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
@@ -116,7 +87,6 @@ function crearHTMLTarjeta(s, actionStr) {
     return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
 }
 
-// Descargar canción ahora funciona como un botón de "Favoritos" para evitar bloqueos
 function descargarCancion(e) {
     if(e) e.stopPropagation();
     if(currentIndex === -1) return;
@@ -126,7 +96,7 @@ function descargarCancion(e) {
     if(!biblioteca.some(s => s.id === song.id)) {
         biblioteca.unshift(song); 
         localStorage.setItem('FamiMusic_Lib', JSON.stringify(biblioteca));
-        document.getElementById('btnDownload').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="var(--accent)"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+        document.getElementById('btnDownload').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
         cargarBiblioteca();
     }
 }
@@ -159,10 +129,7 @@ async function cargarCarrusel(query, containerId, memoriaKey) {
         const data = await res.json();
         memoriasInicio[memoriaKey] = data; 
         const container = document.getElementById(containerId);
-        container.style.opacity = "0.3";
         container.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playDesdeCarrusel('${memoriaKey}', ${index})`)).join('');
-        container.style.transition = "opacity 0.3s ease";
-        container.style.opacity = "1";
     } catch (e) {}
 }
 
@@ -206,9 +173,7 @@ async function nextSong(e = null, isCrossfade = false) {
             playlist = playlist.concat(data);
             playIndex(currentIndex + 1, false, isCrossfade);
         } catch(err) { playIndex(0, false, false); }
-    } else {
-        playIndex(0, false, false); 
-    }
+    } else { playIndex(0, false, false); }
 }
 
 function prevSong(e) { if(e) e.stopPropagation(); if (currentIndex > 0) playIndex(currentIndex - 1, false, false); }
@@ -230,47 +195,43 @@ function formatoTiempo(segundos) {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-// --- EL NUEVO MOTOR DE REPRODUCCIÓN OFICIAL ---
+// --- EL NUEVO REPRODUCTOR CERO DEMORAS ---
 function playIndex(index, preserveTime = false, isCrossfade = false) {
-    if (!ytReady) {
-        document.getElementById('trackName').innerText = "Iniciando motor...";
-        setTimeout(() => playIndex(index, preserveTime, isCrossfade), 1000);
-        return;
+    isMixing = isCrossfade;
+
+    const oldAudio = getAudio(); 
+    let newDeck = activeDeck === 1 ? 2 : 1; 
+    const audio = document.getElementById('audio' + newDeck); 
+
+    if (isCrossfade) {
+        oldAudio.ontimeupdate = null;
+        oldAudio.onended = null;
+        activeDeck = newDeck; 
+    } else {
+        oldAudio.pause();
+        oldAudio.volume = 1;
+        oldAudio.ontimeupdate = null;
+        oldAudio.onended = null;
     }
-
-    if (isCrossfade) isMixing = true; 
-    else isMixing = false;
-
-    const oldPlayer = getActivePlayer(); 
-    activeDeck = activeDeck === 1 ? 2 : 1; 
-    const newPlayer = getActivePlayer(); 
-
-    if (!isCrossfade && oldPlayer && oldPlayer.stopVideo) { oldPlayer.stopVideo(); }
 
     currentIndex = index; 
     const song = playlist[index]; 
-    const playerUI = document.getElementById('player');
+    const player = document.getElementById('player');
     
     guardarHistorial(song.title);
     
-    let fullTitle = song.title;
-    let trackStr = fullTitle;
-    let artistStr = "YouTube Audio";
-    if (fullTitle.includes("-")) {
-        let parts = fullTitle.split("-");
-        artistStr = parts[0].trim();
-        trackStr = parts.slice(1).join("-").trim();
-    }
+    let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
+    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube Audio";
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
-        navigator.mediaSession.setActionHandler('play', () => { getActivePlayer().playVideo(); actualizarBotonesPlay(svgPause); });
-        navigator.mediaSession.setActionHandler('pause', () => { getActivePlayer().pauseVideo(); actualizarBotonesPlay(svgPlay); });
+        navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
+        navigator.mediaSession.setActionHandler('pause', () => { document.getElementById('audio1').pause(); document.getElementById('audio2').pause(); actualizarBotonesPlay(svgPlay); });
         navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
         navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
     }
 
-    document.getElementById('trackName').innerText = isCrossfade ? "Mezclando pista..." : trackStr;
+    document.getElementById('trackName').innerText = isCrossfade ? "Mezclando..." : trackStr;
     document.getElementById('artistName').innerText = artistStr;
     document.getElementById('hudImg').src = song.thumb;
     document.getElementById('ambientBg').src = song.thumb; 
@@ -283,67 +244,73 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     }
     
     actualizarBotonesPlay(svgPause);
-    playerUI.classList.add('active');
+    player.classList.add('active');
 
-    // Cargar directamente desde YouTube oficial
-    newPlayer.setVolume(isCrossfade ? 0 : 100);
-    newPlayer.loadVideoById(song.id);
+    // LA MAGIA: Le asignamos la dirección web y le damos Play inmediatamente, sin usar 'await'
+    audio.src = "/stream/" + song.id;
     
-    clearInterval(timeUpdateInterval);
-    timeUpdateInterval = setInterval(() => {
-        if (newPlayer && newPlayer.getPlayerState && newPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
-            let curr = newPlayer.getCurrentTime();
-            let d = newPlayer.getDuration();
-            if(!d) return;
+    audio.onended = () => { nextSong(); };
+    
+    audio.ondurationchange = () => {
+        document.getElementById('barraProgreso').max = audio.duration;
+        document.getElementById('timeTotal').innerText = "-" + formatoTiempo(audio.duration);
+    };
 
-            document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - curr);
-            document.getElementById('barraProgreso').max = d;
-            document.getElementById('timeActual').innerText = formatoTiempo(curr);
-            document.getElementById('barraProgreso').value = curr;
-            document.getElementById('miniProgress').style.width = ((curr / d) * 100) + "%";
-            
-            // EL DJ sigue vivo
-            const restante = d - curr;
-            if (restante <= 8 && restante > 1 && !isMixing) {
-                isMixing = true; 
-                nextSong(null, true); 
-            }
+    audio.ontimeupdate = () => {
+        let d = audio.duration;
+        if (isNaN(d) || !d) return;
+
+        document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - audio.currentTime);
+        document.getElementById('timeActual').innerText = formatoTiempo(audio.currentTime);
+        document.getElementById('barraProgreso').value = audio.currentTime;
+        document.getElementById('miniProgress').style.width = ((audio.currentTime / d) * 100) + "%";
+        
+        const restante = d - audio.currentTime;
+        if (restante <= 8 && restante > 1 && !isMixing) {
+            isMixing = true; 
+            nextSong(null, true); 
         }
-    }, 500);
+    };
 
     if (isCrossfade) {
-        let volOut = 100;
+        audio.volume = 0;
+        audio.play().catch(()=>{});
+        
+        let volOut = 1.0;
         let fadeOutInt = setInterval(() => {
-            volOut -= 5; 
-            if (volOut <= 5) { 
-                oldPlayer.stopVideo(); 
-                clearInterval(fadeOutInt); 
-            } else { oldPlayer.setVolume(volOut); }
+            volOut -= 0.05; 
+            if (volOut <= 0.05) { oldAudio.pause(); oldAudio.volume = 1; clearInterval(fadeOutInt); } 
+            else { oldAudio.volume = volOut; }
         }, 250);
 
         let volIn = 0;
         let fadeInInt = setInterval(() => {
-            volIn += 5;
-            if (volIn >= 95) { 
-                newPlayer.setVolume(100); 
-                clearInterval(fadeInInt); 
-            } else { newPlayer.setVolume(volIn); }
+            volIn += 0.05;
+            if (volIn >= 0.95) { audio.volume = 1; clearInterval(fadeInInt); } 
+            else { audio.volume = volIn; }
         }, 250);
+        
+    } else {
+        audio.volume = 1;
+        audio.play().catch(()=>{});
     }
 
-    document.getElementById('barraProgreso').oninput = (e) => { newPlayer.seekTo(e.target.value, true); };
+    document.getElementById('barraProgreso').oninput = (e) => { audio.currentTime = e.target.value; };
+}
+
+function actualizarBotonesPlay(svgString) { 
+    document.getElementById('btnPlayPauseMini').innerHTML = svgString; 
+    document.getElementById('btnPlayPauseBig').innerHTML = svgString; 
 }
 
 function togglePlay(e) {
     if(e) e.stopPropagation();
-    const p = getActivePlayer();
-    if (p && p.getPlayerState) {
-        if (p.getPlayerState() === YT.PlayerState.PLAYING) { 
-            p.pauseVideo(); 
-            actualizarBotonesPlay(svgPlay); 
-        } else { 
-            p.playVideo(); 
-            actualizarBotonesPlay(svgPause); 
-        }
+    const mainAudio = getAudio();
+    if (mainAudio.paused) { 
+        mainAudio.play(); 
+        actualizarBotonesPlay(svgPause); 
+    } else { 
+        mainAudio.pause(); 
+        actualizarBotonesPlay(svgPlay); 
     }
 }
