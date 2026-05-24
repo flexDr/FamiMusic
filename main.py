@@ -1,8 +1,4 @@
-import json
-import urllib.request
-import ssl
 import yt_dlp
-import random
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -13,61 +9,40 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
-
 @app.get("/")
 def home(): 
     return FileResponse("templates/index.html")
 
 @app.get("/search/{q}")
 def search(q: str):
+    # ¡NUEVO SISTEMA! Buscamos en SoundCloud (scsearch) en lugar de YouTube.
+    # Cero bloqueos de país y el mejor catálogo de Dembow y Mixes.
     with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
-        info = ydl.extract_info(f"ytsearch15:{q} official audio", download=False)
-        return [{"id": e['id'], "title": e['title'], "thumb": f"https://wsrv.nl/?url=https://img.youtube.com/vi/{e['id']}/mqdefault.jpg"} for e in info.get('entries', []) if e.get('id')]
+        info = ydl.extract_info(f"scsearch15:{q}", download=False)
+        resultados = []
+        for e in info.get('entries', []):
+            if e.get('url') and e.get('title'):
+                # Extraemos la portada oficial o ponemos una por defecto
+                thumb = "https://ui-avatars.com/api/?name=Musica&background=random"
+                if e.get('thumbnails'):
+                    thumb = e.get('thumbnails')[0].get('url', thumb)
 
-@app.get("/stream/{id}")
-def stream(id: str):
-    # 1. Intentamos Cobalt API (Servidores globales sin bloqueo de país)
-    cobalt_api = "https://api.cobalt.tools/api/json"
-    data = json.dumps({
-        "url": f"https://www.youtube.com/watch?v={id}",
-        "isAudioOnly": True,
-        "aFormat": "mp3"
-    }).encode('utf-8')
-    
+                resultados.append({
+                    "id": e['url'], # Guardamos el enlace directo del track
+                    "title": e['title'],
+                    "thumb": thumb
+                })
+        return resultados
+
+@app.get("/stream")
+def stream(url: str):
+    # Extraemos el MP3 puro. Safari ama este formato y arranca de una vez.
     try:
-        req = urllib.request.Request(cobalt_api, data=data, headers={
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)'
-        })
-        with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            if 'url' in result:
-                # El iPhone recibe un link MP3 universal y lo reproduce de inmediato
-                return RedirectResponse(result['url'])
+        with yt_dlp.YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info.get('url')
+            if audio_url:
+                return RedirectResponse(audio_url)
     except:
         pass
-        
-    # 2. Respaldo Invidious (Túneles europeos con proxy local)
-    instances = [
-        "https://inv.tux.pizza",
-        "https://invidious.nerdvpn.de",
-        "https://inv.nadeko.net"
-    ]
-    random.shuffle(instances) # Alternamos para no saturar uno solo
-    
-    for inst in instances:
-        url = f"{inst}/latest_version?id={id}&itag=140&local=true"
-        try:
-            # Hacemos un ping rapidísimo para ver si el servidor europeo responde
-            req = urllib.request.Request(url, method="HEAD", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=2, context=ctx) as r:
-                if r.status == 200:
-                    return RedirectResponse(url)
-        except:
-            continue
-            
-    return {"error": "Red ocupada"}
+    return {"error": "No se pudo obtener el audio"}
