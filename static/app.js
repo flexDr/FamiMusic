@@ -36,12 +36,12 @@ function guardarHistorial(titulo) {
 
 function obtenerQueryInteligente() {
     let historial = JSON.parse(localStorage.getItem('Fami_Cerebro')) || [];
-    if (historial.length > 0) return historial[Math.floor(Math.random() * historial.length)] + " exitos mix oficial";
-    const defaults = ["The Weeknd XXXTentacion", "Trap Latino Mix", "Dembow Dominicano hits"];
+    if (historial.length > 0) return historial[Math.floor(Math.random() * historial.length)] + " exitos mix";
+    const defaults = ["Dembow Dominicano hits", "Trap Latino Mix", "Reggaeton Mix"];
     return defaults[Math.floor(Math.random() * defaults.length)];
 }
 
-const poolDembow = ["Dembow Dominicano hits", "El Alfa Mix Oficial", "Rochy RD Dembow", "Tokischa Mix"];
+const poolDembow = ["Dembow Dominicano hits", "El Alfa Mix", "Rochy RD Dembow", "Angel Dior Mix"];
 const poolTrap = ["Trap Latino Mix", "Anuel AA Trap", "Eladio Carrion Mix"];
 
 window.onload = async () => {
@@ -78,13 +78,13 @@ function switchTab(tabId, btnElement) {
 
 function crearHTMLTarjeta(s, actionStr) {
     let title = s.title;
-    let artist = "Plataforma Musical";
+    let artist = "SoundCloud Audio";
     if (s.title.includes("-")) {
         let parts = s.title.split("-");
         artist = parts[0].trim();
         title = parts.slice(1).join("-").trim();
     }
-    return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
+    return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=2a2a2a&color=fff'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
 }
 
 function descargarCancion(e) {
@@ -220,7 +220,7 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     guardarHistorial(song.title);
     
     let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
-    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "Audio";
+    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "SoundCloud";
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
@@ -245,8 +245,8 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     actualizarBotonesPlay(svgPause);
     player.classList.add('active');
 
-    // Conecta directo a nuestro servidor
-    audio.src = "/stream/" + song.id;
+    // LA RUTA CORRECTA PARA SOUNDCLOUD
+    audio.src = "/stream?url=" + encodeURIComponent(song.id);
     
     audio.onended = () => { nextSong(); };
     
