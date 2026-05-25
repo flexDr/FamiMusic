@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fami Music</title>
+    <!-- Enlaces para PWA (necesario para segundo plano en iOS) -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#fa233b">
     <style>
         /* === DISEÑO PREMIUM APPLE MUSIC === */
         :root { --text: #ffffff; --text-muted: #ebebf599; --accent: #fa233b; --tab-bg: rgba(0, 0, 0, 0.4); }
@@ -155,12 +161,15 @@
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        // ========== VARIABLES GLOBALES ==========
         let playlistActual = [];
         let indiceActual = 0;
         let memoriasInicio = {}; 
         let reproductorYT = null;
         let modoVideoActivo = false;
         let progresoIntervalo = null;
+        let wakeLock = null;          // Para evitar suspensión de pantalla
+        let keepAliveInterval = null; // Para mantener vivo el Service Worker
 
         const uiRep = document.getElementById('reproductor-ui');
         const btnPlay = document.getElementById('btn-play');
@@ -177,21 +186,83 @@
 
         const gradientesApple = ["linear-gradient(135deg, #4568dc 0%, #b06ab3 100%)", "linear-gradient(135deg, #13547a 0%, #80d0c7 100%)", "linear-gradient(135deg, #ff0844 0%, #ffb199 100%)", "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"];
 
-        // Inicializamos el motor oficial de YouTube
+        // ========== INICIALIZACIÓN DE YOUTUBE IFrame ==========
         function onYouTubeIframeAPIReady() {
             reproductorYT = new YT.Player('yt-video-container', {
                 height: '100%', width: '100%', videoId: '',
-                playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'rel': 0, 'modestbranding': 1 },
+                playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'rel': 0, 'modestbranding': 1, 'origin': window.location.origin },
                 events: { 'onStateChange': cambioEstadoReproductor }
             });
         }
 
         function cambioEstadoReproductor(event) {
             if (event.data === YT.PlayerState.ENDED) pistaSiguiente();
-            if (event.data === YT.PlayerState.PLAYING) actualizarUIPlay(true);
+            if (event.data === YT.PlayerState.PLAYING) {
+                actualizarUIPlay(true);
+                solicitarWakeLock();   // Evita que la pantalla se apague (opcional)
+                actualizarMediaSession();  // Actualiza la pantalla de bloqueo
+            }
             if (event.data === YT.PlayerState.PAUSED) actualizarUIPlay(false);
+            if (event.data === YT.PlayerState.PLAYING && reproductorYT.isMuted()) reproductorYT.unMute();
         }
 
+        // ========== WAKE LOCK (evita que la pantalla se apague, no afecta el audio) ==========
+        async function solicitarWakeLock() {
+            if ('wakeLock' in navigator && !wakeLock) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => { wakeLock = null; });
+                    console.log('Wake Lock activado');
+                } catch (err) { console.warn('Wake Lock no soportado', err); }
+            }
+        }
+
+        // ========== MEDIA SESSION (controles en pantalla de bloqueo) ==========
+        function actualizarMediaSession() {
+            if (!playlistActual[indiceActual]) return;
+            const pista = playlistActual[indiceActual];
+            let tituloRaw = decodificarHTML(pista.title);
+            let artista = "Fami Music";
+            let titulo = tituloRaw;
+            if (tituloRaw.includes("-")) {
+                let partes = tituloRaw.split("-");
+                artista = partes[0].trim();
+                titulo = partes.slice(1).join("-").trim();
+            }
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: titulo,
+                    artist: artista,
+                    artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
+                });
+                navigator.mediaSession.setActionHandler('play', () => { if (reproductorYT) reproductorYT.playVideo(); });
+                navigator.mediaSession.setActionHandler('pause', () => { if (reproductorYT) reproductorYT.pauseVideo(); });
+                navigator.mediaSession.setActionHandler('nexttrack', () => pistaSiguiente());
+                navigator.mediaSession.setActionHandler('previoustrack', () => pistaAnterior());
+            }
+        }
+
+        // ========== SERVICE WORKER Y KEEP-ALIVE (para evitar que el navegador mate la página) ==========
+        function registrarServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('✅ Service Worker registrado', reg))
+                    .catch(err => console.error('❌ Error SW:', err));
+            }
+            // Keep-alive: cada 10 segundos envía un mensaje al SW y también evita que la pestaña se duerma
+            if (keepAliveInterval) clearInterval(keepAliveInterval);
+            keepAliveInterval = setInterval(() => {
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage('keepAlive');
+                }
+                // Truco adicional: reproduce un audio mudo para "despertar" el canal de audio
+                let dummy = new Audio();
+                dummy.volume = 0;
+                dummy.play().catch(()=>{});
+            }, 10000);
+        }
+
+        // ========== FUNCIONES DE NAVEGACIÓN ==========
         function cambiarTab(idVista, tabApretado) {
             document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
@@ -204,6 +275,7 @@
             cargarFila("bad bunny exitos", "fila-destacadas", "destacada");
             cargarHistorial();
             cargarFila("el alfa dembow oficial", "fila-dembow", "normal");
+            registrarServiceWorker();  // Inicia el service worker y keep-alive
         };
 
         function decodificarHTML(html) {
@@ -212,6 +284,7 @@
             return txt.value.replace(/['"]/g, '').trim(); 
         }
 
+        // ========== GENERACIÓN DE TARJETAS ==========
         function crearTarjeta(cancion, index, idContenedor, tipo) {
             let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Desconocido";
             let artista = "Fami Music"; let titulo = tituloRaw;
@@ -236,7 +309,6 @@
             const contenedor = document.getElementById(idContenedor);
             contenedor.innerHTML = '<div class="mensaje-carga">Buscando...</div>';
             try {
-                // Esto llama a tu backend, pero SÓLO para buscar la lista, no para el audio
                 const res = await fetch(`/search/${encodeURIComponent(busqueda)}`);
                 const datos = await res.json();
                 if (!datos || datos.length === 0) throw new Error("Vacío");
@@ -279,7 +351,7 @@
             cargarHistorial(); 
         }
 
-        // === INICIAR PISTA DIRECTO CON EL MOTOR DE YOUTUBE ===
+        // ========== REPRODUCCIÓN PRINCIPAL (con YouTube iframe) ==========
         function iniciarPista(indice, idContenedor) {
             if (!reproductorYT) return alert("Cargando motor de música...");
             
@@ -303,7 +375,7 @@
             miniPlayer.style.display = 'flex'; 
             guardarEnHistorial(pista);
 
-            // Cargamos el ID directamente en el motor Iframe de YouTube (0 fallas)
+            // Cargar el video en el iframe
             reproductorYT.loadVideoById(pista.id);
             abrirReproductor();
 
