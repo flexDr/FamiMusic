@@ -21,9 +21,9 @@ def home():
     return FileResponse("templates/index.html")
 
 @app.get("/search/{q}")
-def search(q: str):
-    if not YOUTUBE_API_KEY:
-        return JSONResponse({"error": "API Key no configurada"}, status_code=400)
+def search(q: str, maxResults: int = 12):
+    # ... usa maxResults en la URL de YouTube
+    url = f"...&maxResults={maxResults}&..."
     
     q_safe = urllib.parse.quote(q)
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q={q_safe}&type=video&videoCategoryId=10&regionCode=DO&key={YOUTUBE_API_KEY}"
