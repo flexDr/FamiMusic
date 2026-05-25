@@ -2,21 +2,21 @@ import json
 import urllib.request
 import urllib.parse
 import os
-import ssl
-import random
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+import yt_dlp
 
 app = FastAPI(title="FamiMusic")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
-# Ignorar errores de certificados SSL
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
+# Canciones de respaldo
+BACKUP_SONGS = [
+    {"id": "dQw4w9WgXcQ", "title": "Never Gonna Give You Up", "thumb": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"},
+    {"id": "kJQP7kiw5Fk", "title": "Dance Monkey", "thumb": "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg"},
+]
 
 @app.get("/")
 def home():
@@ -24,45 +24,59 @@ def home():
 
 @app.get("/search/{q}")
 def search(q: str):
+    if not YOUTUBE_API_KEY:
+        return JSONResponse(content=BACKUP_SONGS)
+    
     q_safe = urllib.parse.quote(q)
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q={q_safe}&type=video&key={YOUTUBE_API_KEY}"
+    
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
+        with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode('utf-8'))
             resultados = []
             for item in data.get('items', []):
-                if item.get('id', {}).get('videoId'):
+                if item['id'].get('videoId'):
+                    vid = item['id']['videoId']
+                    thumb = item['snippet']['thumbnails'].get('high', {}).get('url')
+                    if not thumb:
+                        thumb = item['snippet']['thumbnails'].get('medium', {}).get('url', '')
                     resultados.append({
-                        "id": item['id']['videoId'],
+                        "id": vid,
                         "title": item['snippet']['title'],
-                        "thumb": item['snippet']['thumbnails'].get('high', {}).get('url', '')
+                        "thumb": thumb
                     })
+            if not resultados:
+                return JSONResponse(content=BACKUP_SONGS)
             return JSONResponse(content=resultados)
     except Exception as e:
-        return JSONResponse(content=[])
+        print(f"Error: {e}")
+        return JSONResponse(content=BACKUP_SONGS)
 
 @app.get("/audio/{video_id}")
-def get_audio_url(video_id: str):
-    # BYPASS: Usamos nodos públicos descentralizados para evitar el bloqueo de YouTube a Render
-    nodos = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.smnz.de",
-        "https://pipedapi.tokhmi.xyz"
-    ]
-    random.shuffle(nodos)
-    
-    for nodo in nodos:
-        try:
-            req = urllib.request.Request(f"{nodo}/streams/{video_id}", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=6, context=ctx) as r:
-                datos = json.loads(r.read().decode('utf-8'))
-                for stream in datos.get('audioStreams', []):
-                    # Formato M4A es perfecto para el Background Play del iPhone
-                    if stream.get('format') == 'M4A':
-                        return {"url": stream['url']}
-        except Exception:
-            continue
-            
-    # Plan de respaldo de emergencia si fallan los nodos principales
-    return {"url": f"https://inv.tux.pizza/latest_version?id={video_id}&itag=140&local=true"}
+def get_audio(video_id: str):
+    """Devuelve la URL del stream de audio para reproducir con <audio>"""
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'extract_flat': False,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            # Buscar la URL del stream de audio
+            if 'url' in info:
+                audio_url = info['url']
+            else:
+                # Buscar en formats
+                for f in info.get('formats', []):
+                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                        audio_url = f['url']
+                        break
+                else:
+                    audio_url = info['formats'][0]['url']
+        return JSONResponse({"audio_url": audio_url})
+    except Exception as e:
+        print(f"Error extrayendo audio: {e}")
+        return JSONResponse({"error": "No se pudo obtener el audio"}, status_code=500)
