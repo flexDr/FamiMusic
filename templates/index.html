@@ -5,117 +5,188 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fami Music</title>
     <style>
-        :root { --bg: #000000; --text: #ffffff; --text-muted: #a1a1a6; --accent: #fa233b; }
-        body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding-bottom: 120px; }
+        :root { --text: #ffffff; --text-muted: #ebebf599; --accent: #fa233b; --tab-bg: rgba(28,28,30,0.85); }
+        body { margin: 0; padding: 0; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; padding-bottom: 150px; background: #000; -webkit-font-smoothing: antialiased; }
         
-        /* Cabecera Premium */
-        header { padding: 40px 20px 15px; font-size: 32px; font-weight: bold; position: sticky; top: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 10; border-bottom: 1px solid #222; }
+        /* === EFECTO AURORA APPLE MUSIC === */
+        .aurora-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; background: #000; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.6; animation: auroraAnim 15s infinite alternate ease-in-out; }
+        .blob1 { width: 350px; height: 350px; background: #fa233b; top: -10%; left: -10%; animation-delay: 0s; }
+        .blob2 { width: 450px; height: 450px; background: #5e17eb; bottom: -20%; right: -10%; animation-delay: -5s; }
+        .blob3 { width: 300px; height: 300px; background: #ff2a5f; top: 40%; left: 50%; animation-delay: -10s; }
+        @keyframes auroraAnim { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(60px, 60px) scale(1.2); } }
+
+        /* Cabecera Natural */
+        header { padding: 50px 20px 10px; font-size: 34px; font-weight: 800; position: sticky; top: 0; z-index: 10; letter-spacing: 0.5px; }
         
-        /* Secciones y Carruseles */
-        .seccion { margin-top: 30px; }
-        .titulo-seccion { font-size: 22px; font-weight: 600; margin: 0 20px 15px; }
-        .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 16px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+        /* Vistas del Menú */
+        .vista { display: none; }
+        .vista.activa { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Carruseles */
+        .seccion { margin-top: 35px; }
+        .titulo-seccion { font-size: 20px; font-weight: 700; margin: 0 20px 15px; border-bottom: 0.5px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 15px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
         .carrusel::-webkit-scrollbar { display: none; }
         
-        .tarjeta { width: 150px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; }
-        .tarjeta img { width: 100%; height: 150px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-        .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .artista-tarjeta { font-size: 13px; color: var(--text-muted); }
+        .tarjeta { width: 155px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; }
+        .tarjeta img { width: 100%; height: 155px; border-radius: 14px; object-fit: cover; box-shadow: 0 8px 20px rgba(0,0,0,0.4); transition: transform 0.2s; }
+        .tarjeta:active img { transform: scale(0.95); }
+        .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artista-tarjeta { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .mensaje-carga { padding: 0 20px; color: var(--text-muted); font-size: 15px; }
+        .mensaje-carga { padding: 0 20px; color: var(--text-muted); font-size: 14px; }
 
-        /* Reproductor Full Screen (Apple Music Style) */
-        #reproductor-ui { position: fixed; bottom: 0; left: 0; width: 100%; height: 100vh; background: rgba(28,28,30,0.95); backdrop-filter: blur(40px); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 100; padding: 40px 20px; display: flex; flex-direction: column; }
+        /* === MINI REPRODUCTOR APPLE MUSIC === */
+        #mini-player { position: fixed; bottom: 85px; left: 10px; right: 10px; height: 60px; background: rgba(30,30,30,0.85); backdrop-filter: blur(25px); border-radius: 14px; display: flex; align-items: center; padding: 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 90; cursor: pointer; transform: translateY(150%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); border: 0.5px solid rgba(255,255,255,0.1); }
+        #mini-player.activo { transform: translateY(0); }
+        #mini-img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; margin-right: 12px; }
+        .mini-info { flex: 1; overflow: hidden; }
+        .mini-titulo { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mini-btn { background: none; border: none; color: #fff; font-size: 24px; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+
+        /* === REPRODUCTOR FULL SCREEN PROFESIONAL === */
+        #reproductor-ui { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.7); backdrop-filter: blur(50px); transform: translateY(100%); transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 100; padding: 50px 30px; display: flex; flex-direction: column; }
         #reproductor-ui.activo { transform: translateY(0); }
         
-        .btn-cerrar { align-self: center; width: 40px; height: 5px; background: #666; border-radius: 10px; margin-bottom: 30px; cursor: pointer; }
+        .btn-cerrar { align-self: center; width: 36px; height: 5px; background: rgba(255,255,255,0.3); border-radius: 10px; margin-bottom: 40px; cursor: pointer; }
         
-        /* Contenedor del Video/Foto */
-        .media-box { width: 100%; aspect-ratio: 1/1; border-radius: 18px; overflow: hidden; background: #111; box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 30px; position: relative; }
+        .media-box { width: 100%; aspect-ratio: 1/1; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin-bottom: 40px; position: relative; transition: transform 0.3s; }
+        .media-box.pausado { transform: scale(0.85); } /* Efecto Apple de encoger portada en pausa */
         
-        /* El reproductor de YouTube oficial */
         #yt-video-container { width: 100%; height: 100%; pointer-events: none; }
-        
-        /* La portada que tapa el video cuando está en "Modo Audio" */
         #arte-cancion { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.3s; }
-        #arte-cancion.oculto { opacity: 0; pointer-events: none; }
+        #arte-cancion.oculto { opacity: 0; }
 
-        .info-pista { margin-bottom: 25px; }
-        .nombre-pista { font-size: 24px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .nombre-artista { font-size: 18px; color: var(--accent); opacity: 0.9; }
+        .info-pista { margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .textos-pista { overflow: hidden; }
+        .nombre-pista { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nombre-artista { font-size: 18px; color: var(--text-muted); opacity: 0.9; margin-top: 4px; }
         
-        /* Controles y Progreso */
-        .tiempos { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); font-weight: 500; }
-        input[type="range"] { width: 100%; margin: 12px 0 25px; accent-color: #fff; }
+        .tiempos { display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.5); font-weight: 500; }
+        input[type="range"] { width: 100%; margin: 10px 0 30px; appearance: none; background: rgba(255,255,255,0.2); height: 4px; border-radius: 2px; }
+        input[type="range"]::-webkit-slider-thumb { appearance: none; width: 10px; height: 10px; background: #fff; border-radius: 50%; }
         
-        .controles-main { display: flex; justify-content: center; align-items: center; gap: 40px; }
-        .btn-icono { background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
-        .btn-play { width: 70px; height: 70px; border-radius: 50%; background: #fff; color: #000; border: none; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .controles-main { display: flex; justify-content: center; align-items: center; gap: 45px; margin-bottom: 40px; }
+        .btn-icono { background: none; border: none; color: #fff; font-size: 38px; cursor: pointer; transition: opacity 0.2s; }
+        .btn-icono:active { opacity: 0.5; }
+        .btn-play { width: 75px; height: 75px; border-radius: 50%; background: #fff; color: #000; border: none; font-size: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
+        .btn-play:active { transform: scale(0.9); }
         
-        /* Switch Video/Audio */
-        .switch-video { margin-top: auto; padding-bottom: 20px; text-align: center; }
-        .switch-video button { background: #333; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; }
-        .switch-video button.encendido { background: var(--accent); }
+        .switch-video button { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; backdrop-filter: blur(10px); }
+        .switch-video button.encendido { background: var(--accent); color: white; }
+
+        /* === MENÚ INFERIOR (TAB BAR) === */
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: var(--tab-bg); backdrop-filter: blur(25px); display: flex; justify-content: space-around; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.1); z-index: 80; padding-bottom: env(safe-area-inset-bottom); }
+        .tab { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); cursor: pointer; width: 33%; font-size: 10px; font-weight: 500; }
+        .tab svg { width: 26px; height: 26px; margin-bottom: 4px; fill: currentColor; }
+        .tab.activo { color: var(--accent); }
+
+        /* Buscador */
+        .search-box { padding: 0 20px 20px; }
+        .search-box input { width: 100%; background: rgba(255,255,255,0.1); border: none; padding: 15px; border-radius: 12px; color: white; font-size: 16px; outline: none; }
+        .search-box input::placeholder { color: var(--text-muted); }
+        .grid-resultados { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px; }
+        .grid-resultados .tarjeta { width: 100%; }
     </style>
 </head>
 <body>
 
-    <header>Inicio</header>
-
-    <div class="seccion">
-        <div class="titulo-seccion">Sugerencias destacadas para ti</div>
-        <div class="carrusel" id="fila-destacadas"></div>
+    <div class="aurora-bg">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+        <div class="blob blob3"></div>
     </div>
 
-    <div class="seccion">
-        <div class="titulo-seccion">Escuchado recientemente</div>
-        <div class="carrusel" id="fila-recientes"></div>
+    <div id="vista-inicio" class="vista activa">
+        <header>Escuchar</header>
+        <div class="seccion">
+            <div class="titulo-seccion">Sugerencias destacadas</div>
+            <div class="carrusel" id="fila-destacadas"></div>
+        </div>
+        <div class="seccion">
+            <div class="titulo-seccion">Escuchado recientemente</div>
+            <div class="carrusel" id="fila-recientes"></div>
+        </div>
+        <div class="seccion">
+            <div class="titulo-seccion">Puro Dembow</div>
+            <div class="carrusel" id="fila-dembow"></div>
+        </div>
     </div>
 
-    <div class="seccion">
-        <div class="titulo-seccion">Recomendado para ti</div>
-        <div class="carrusel" id="fila-recomendado"></div>
+    <div id="vista-buscar" class="vista">
+        <header>Buscar</header>
+        <div class="search-box">
+            <input type="text" id="input-buscador" placeholder="Artistas, canciones o mixes...">
+        </div>
+        <div class="grid-resultados" id="grid-buscar">
+            <div class="mensaje-carga" style="text-align:center; width: 100%; margin-top:20px;">Busca tus temas favoritos.</div>
+        </div>
     </div>
 
-    <div class="seccion">
-        <div class="titulo-seccion">Puro Dembow</div>
-        <div class="carrusel" id="fila-dembow"></div>
+    <div id="vista-biblioteca" class="vista">
+        <header>Biblioteca</header>
+        <div class="seccion">
+            <div class="titulo-seccion">Recientemente añadidos</div>
+            <div class="grid-resultados" id="grid-biblioteca"></div>
+        </div>
     </div>
 
-    <div class="seccion">
-        <div class="titulo-seccion">Bachata Dominicana</div>
-        <div class="carrusel" id="fila-bachata"></div>
+    <div id="mini-player" onclick="abrirReproductor()">
+        <img src="" id="mini-img">
+        <div class="mini-info">
+            <div class="mini-titulo" id="mini-title">No hay pista</div>
+        </div>
+        <button class="mini-btn" id="mini-play-btn" onclick="alternarPlayFiltro(event)">▶</button>
     </div>
 
     <div id="reproductor-ui">
         <div class="btn-cerrar" onclick="cerrarReproductor()"></div>
         
-        <div class="media-box">
+        <div class="media-box pausado" id="media-box-anim">
             <div id="yt-video-container"></div>
             <img id="arte-cancion" src="" alt="Arte">
         </div>
 
         <div class="info-pista">
-            <div class="nombre-pista" id="titulo-actual">Cargando...</div>
-            <div class="nombre-artista">Fami Music</div>
+            <div class="textos-pista">
+                <div class="nombre-pista" id="titulo-actual">Cargando...</div>
+                <div class="nombre-artista">Fami Music</div>
+            </div>
         </div>
 
+        <input type="range" id="barra-progreso" value="0" min="0" max="100">
         <div class="tiempos">
             <span id="tiempo-actual">0:00</span>
             <span id="tiempo-restante">-0:00</span>
         </div>
-        <input type="range" id="barra-progreso" value="0" min="0" max="100">
 
         <div class="controles-main">
             <button class="btn-icono" onclick="pistaAnterior()">⏮</button>
-            <button class="btn-play" id="btn-play" onclick="alternarPlay()">⏸</button>
+            <button class="btn-play" id="btn-play" onclick="alternarPlay()">▶</button>
             <button class="btn-icono" onclick="pistaSiguiente()">⏭</button>
         </div>
 
         <div class="switch-video">
-            <button id="btn-toggle-video" onclick="alternarModoVideo()">Modo Video: OFF</button>
+            <button id="btn-toggle-video" onclick="alternarModoVideo()">Ver Video</button>
         </div>
     </div>
+
+    <nav class="tab-bar">
+        <div class="tab activo" onclick="cambiarTab('inicio', this)">
+            <svg viewBox="0 0 24 24"><path d="M12 3L4 9v12h5v-7h6v7h5V9z"/></svg>
+            <span>Escuchar</span>
+        </div>
+        <div class="tab" onclick="cambiarTab('buscar', this)">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <span>Buscar</span>
+        </div>
+        <div class="tab" onclick="cambiarTab('biblioteca', this)">
+            <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
+            <span>Biblioteca</span>
+        </div>
+    </nav>
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="static/app.js"></script>
