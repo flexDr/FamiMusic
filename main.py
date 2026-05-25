@@ -38,25 +38,7 @@ def search(q: str):
 
 @app.get("/audio/{video_id}")
 def get_audio_url(video_id: str):
-    # Esto es el "motor" que extrae el audio directo y lo pasa a tu reproductor HTML5
     ydl_opts = {'format': 'bestaudio', 'quiet': True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-        return {"url": info['url']}            resultados = []
-            for item in data.get('items', []):
-                if item['id'].get('videoId'):
-                    vid = item['id']['videoId']
-                    thumb = item['snippet']['thumbnails'].get('high', {}).get('url')
-                    if not thumb:
-                        thumb = item['snippet']['thumbnails'].get('medium', {}).get('url', '')
-                    resultados.append({
-                        "id": vid,
-                        "title": item['snippet']['title'],
-                        "thumb": thumb
-                    })
-            if not resultados:
-                return JSONResponse(content=BACKUP_SONGS)
-            return JSONResponse(content=resultados)
-    except Exception as e:
-        print(f"Error: {e}")
-        return JSONResponse(content=BACKUP_SONGS)
+        return {"url": info['url']}
