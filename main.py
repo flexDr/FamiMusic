@@ -1,11 +1,11 @@
 import json
 import urllib.request
+import urllib.parse
 import ssl
-import yt_dlp
 import random
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -23,35 +23,65 @@ def home():
 
 @app.get("/search/{q}")
 def search(q: str):
-    # LA CARA: Buscador oficial de YouTube para portadas HD y artistas reales
-    with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
-        info = ydl.extract_info(f"ytsearch15:{q}", download=False)
-        return [{"id": e['id'], "title": e['title'], "thumb": f"https://wsrv.nl/?url=https://img.youtube.com/vi/{e['id']}/mqdefault.jpg"} for e in info.get('entries', []) if e.get('id')]
+    # EL NUEVO BUSCADOR BLINDADO: Usamos redes descentralizadas.
+    # YouTube no puede bloquear esto porque Render jamás los contacta directamente.
+    nodos_busqueda = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.smnz.de",
+        "https://pipedapi.tokhmi.xyz",
+        "https://piped-api.lunar.icu"
+    ]
+    random.shuffle(nodos_busqueda)
+    q_safe = urllib.parse.quote(q)
+    
+    for nodo in nodos_busqueda:
+        try:
+            req = urllib.request.Request(f"{nodo}/search?q={q_safe}&filter=all", headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5, context=ctx) as r:
+                datos = json.loads(r.read().decode('utf-8'))
+                resultados = []
+                for item in datos.get('items', []):
+                    # Filtramos para asegurarnos de que solo sean canciones o mixes reales
+                    if item.get('type') == 'stream':
+                        video_id = item['url'].replace('/watch?v=', '')
+                        resultados.append({
+                            "id": video_id,
+                            "title": item['title'],
+                            "thumb": item['thumbnail']
+                        })
+                        if len(resultados) >= 15: break
+                if resultados: return resultados
+        except Exception:
+            continue
+            
+    return []
 
 @app.get("/api/audio/{id}")
 def proxy_audio(id: str):
-    # EL MÉTODO EXTREMO: Render se convierte en un tubo de descarga directa
-    try:
-        ydl_opts = {'format': 'bestaudio[ext=m4a]/bestaudio/best', 'quiet': True, 'nocheckcertificate': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={id}", download=False)
-            url_real = info['url']
-        
-        req = urllib.request.Request(url_real, headers={'User-Agent': 'Mozilla/5.0'})
-        respuesta = urllib.request.urlopen(req, context=ctx)
-        
-        def tubo_de_datos():
-            while True:
-                pedazo = respuesta.read(65536) # Mandamos 64KB por paquete a la RAM del celular
-                if not pedazo: break
-                yield pedazo
-                
-        return StreamingResponse(tubo_de_datos(), media_type="audio/mp4")
-    except Exception as e:
-        return RedirectResponse(f"https://inv.tux.pizza/latest_version?id={id}&itag=140&local=true")
+    # El tubo directo hacia la memoria RAM de tu iPhone (El Método Extremo)
+    nodos_audio = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.smnz.de",
+        "https://pipedapi.tokhmi.xyz"
+    ]
+    random.shuffle(nodos_audio)
+    for nodo in nodos_audio:
+        try:
+            req = urllib.request.Request(f"{nodo}/streams/{id}", headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=4, context=ctx) as r:
+                datos = json.loads(r.read())
+                for stream in datos.get('audioStreams', []):
+                    # M4A puro, el formato rey para Safari
+                    if stream.get('format') == 'M4A':
+                        return RedirectResponse(stream['url'])
+        except:
+            continue
+            
+    # Plan B
+    nodos_inv = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de"]
+    return RedirectResponse(f"{random.choice(nodos_inv)}/latest_version?id={id}&itag=140&local=true")
 
 @app.get("/api/video/{id}")
 def proxy_video(id: str):
-    # El video es muy pesado para el Tubo RAM, usamos la red europea blindada
-    nodos = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://invidious.jing.rocks"]
-    return RedirectResponse(f"{random.choice(nodos)}/latest_version?id={id}&itag=18&local=true")
+    nodos_inv = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://invidious.jing.rocks"]
+    return RedirectResponse(f"{random.choice(nodos_inv)}/latest_version?id={id}&itag=18&local=true")
