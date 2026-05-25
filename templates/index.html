@@ -103,18 +103,26 @@
 
         // ========== CONEXIÓN CON BACKEND + FALLBACK ==========
         async function fetchSongs(query) {
-            try {
-                const res = await fetch(`/search/${encodeURIComponent(query)}`);
-                if (!res.ok) throw new Error('Error en API');
-                const data = await res.json();
-                if (data && data.length) return data;
-                else return BACKUP_SONGS;
-            } catch (err) {
-                console.warn("Usando canciones de respaldo");
-                return BACKUP_SONGS;
-            }
+    try {
+        const res = await fetch(`/search/${encodeURIComponent(query)}`);
+        if (!res.ok) {
+            const errorData = await res.json();
+            console.error("Error del backend:", errorData);
+            throw new Error(errorData.error || "Error en la búsqueda");
         }
-
+        const data = await res.json();
+        // Si el backend devuelve un array vacío, no hay resultados
+        if (data && Array.isArray(data) && data.length === 0) {
+            console.warn(`No se encontraron canciones para "${query}"`);
+            return []; // devolvemos vacío para que el frontend muestre "No hay resultados"
+        }
+        if (data && Array.isArray(data) && data.length > 0) return data;
+        else return [];
+    } catch (err) {
+        console.error("Fallo en fetchSongs:", err);
+        return []; // no usamos fallback automático, dejamos que la UI muestre el error
+    }
+}
         function renderCards(songs, containerId) {
             const container = document.getElementById(containerId);
             if (!container) return;
