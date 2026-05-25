@@ -17,23 +17,16 @@ document.addEventListener('touchstart', function() {
     }
 }, { once: true });
 
-// === LA INTELIGENCIA ARTIFICIAL DEL DJ ===
 function anunciarDJ(cancion, artista, esMezcla) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel(); 
-    
     let frasesInicio = [
         `¡Sube el volumen, aquí viene ${cancion}!`,
-        `¡Activo! Soltando ${cancion} de ${artista}.`,
+        `¡Activo! Soltando ${cancion}.`,
         `¡Atención la cabina, entra ${cancion}!`
     ];
-    let frasesMezcla = [
-        `¡Sin pausas! Mezclando ${cancion}.`,
-        `¡Cambiando el ritmo con ${cancion}!`
-    ];
-    
+    let frasesMezcla = [`¡Sin pausas! Mezclando ${cancion}.`, `¡Cambiando el ritmo con ${cancion}!`];
     let texto = esMezcla ? frasesMezcla[Math.floor(Math.random() * frasesMezcla.length)] : frasesInicio[Math.floor(Math.random() * frasesInicio.length)];
-    
     let msg = new SpeechSynthesisUtterance(texto);
     msg.lang = 'es-US'; 
     msg.rate = 1.15; 
@@ -44,7 +37,6 @@ function anunciarDJ(cancion, artista, esMezcla) {
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
-// === BOTÓN DE VIDEO ACTIVO ===
 function toggleVideoMode(e) {
     if(e) e.stopPropagation();
     isVideoMode = !isVideoMode;
@@ -80,11 +72,11 @@ function guardarHistorial(titulo) {
 function obtenerQueryInteligente() {
     let historial = JSON.parse(localStorage.getItem('Fami_Cerebro')) || [];
     if (historial.length > 0) return historial[Math.floor(Math.random() * historial.length)] + " exitos mix oficial";
-    const defaults = ["The Weeknd XXXTentacion", "Trap Latino Mix", "Dembow Dominicano hits"];
+    const defaults = ["Dembow Dominicano", "Trap Latino Mix", "Anuel AA exitos"];
     return defaults[Math.floor(Math.random() * defaults.length)];
 }
 
-const poolDembow = ["Dembow Dominicano hits", "El Alfa Mix Oficial", "Rochy RD Dembow", "Tokischa Mix"];
+const poolDembow = ["Dembow Dominicano", "El Alfa Mix Oficial", "Rochy RD Dembow"];
 const poolTrap = ["Trap Latino Mix", "Anuel AA Trap", "Eladio Carrion Mix"];
 
 window.onload = async () => {
@@ -128,321 +120,6 @@ function crearHTMLTarjeta(s, actionStr) {
         title = parts.slice(1).join("-").trim();
     }
     return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
-}
-
-function cargarBiblioteca() {
-    let biblioteca = JSON.parse(localStorage.getItem('FamiMusic_Lib')) || [];
-    const libView = document.getElementById('libraryView');
-    memoriasInicio['biblioteca'] = biblioteca; 
-    if (biblioteca.length === 0) {
-        libView.innerHTML = `<div style="padding: 40px 20px; text-align: center; color: #888;"><p>Tus canciones guardadas estarán aquí.</p></div>`;
-        return;
-    }
-    libView.innerHTML = `<div class="grid">${biblioteca.map((s, index) => {
-        let html = crearHTMLTarjeta(s, `playDesdeCarrusel('biblioteca', ${index})`);
-        return `<div style="position: relative;">${html}<button onclick="eliminarDeBiblioteca(event, '${s.id}')" style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); border: none; color: white; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-weight: bold; z-index: 10;">✕</button></div>`;
-    }).join('')}</div>`;
-}
-
-async function cargarCarrusel(query, containerId, memoriaKey) {
-    try {
-        const res = await fetch("/search/" + encodeURIComponent(query));
-        const data = await res.json();
-        memoriasInicio[memoriaKey] = data; 
-        const container = document.getElementById(containerId);
-        container.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playDesdeCarrusel('${memoriaKey}', ${index})`)).join('');
-    } catch (e) {}
-}
-
-function playDesdeCarrusel(memoriaKey, index) { playlist = memoriasInicio[memoriaKey]; playIndex(index); }
-
-let searchTimeout = null;
-document.getElementById('searchBar').oninput = (e) => {
-    const query = e.target.value.trim();
-    const searchView = document.getElementById('searchView');
-    if (query.length < 2) { searchView.innerHTML = ""; return; }
-    
-    clearTimeout(searchTimeout);
-    searchView.innerHTML = "<p style='padding: 20px; color: #888;'>Escribiendo...</p>";
-    
-    searchTimeout = setTimeout(async () => {
-        searchView.innerHTML = "<p style='padding: 20px; color: #fa233b;'>Buscando opciones...</p>";
-        try {
-            const res = await fetch("/search/" + encodeURIComponent(query));
-            const data = await res.json();
-            playlist = data; 
-            if(data.length === 0) {
-                searchView.innerHTML = "<p style='padding: 20px; color: #888;'>No se encontraron resultados.</p>";
-                return;
-            }
-            searchView.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playIndex(${index})`)).join('');
-        } catch (e) { searchView.innerHTML = "<p style='padding: 20px; color: #888;'>Hubo un error de conexión.</p>"; }
-    }, 800);
-};
-
-async function nextSong(e = null, isCrossfade = false) { 
-    if(e) e.stopPropagation(); 
-    if (currentIndex < playlist.length - 1) {
-        playIndex(currentIndex + 1, false, isCrossfade); 
-    } else if (isInfinityMode) {
-        const lastSong = playlist[currentIndex];
-        let artist = lastSong.title.includes("-") ? lastSong.title.split("-")[0].trim() : lastSong.title;
-        try {
-            if(!isCrossfade) document.getElementById('trackName').innerText = "🤖 Buscando...";
-            const res = await fetch("/search/" + encodeURIComponent(artist + " mix oficial"));
-            const data = await res.json();
-            playlist = playlist.concat(data);
-            playIndex(currentIndex + 1, false, isCrossfade);
-        } catch(err) { playIndex(0, false, false); }
-    } else { playIndex(0, false, false); }
-}
-
-function prevSong(e) { if(e) e.stopPropagation(); if (currentIndex > 0) playIndex(currentIndex - 1, false, false); }
-
-function formatoTiempo(segundos) {
-    if (!segundos || isNaN(segundos)) return "0:00";
-    const min = Math.floor(segundos / 60);
-    const sec = Math.floor(segundos % 60);
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-}
-
-async function playIndex(index, preserveTime = false, isCrossfade = false) {
-    isMixing = isCrossfade;
-
-    const oldAudio = getAudio(); 
-    let newDeck = activeDeck === 1 ? 2 : 1; 
-    const audio = document.getElementById('audio' + newDeck); 
-
-    if (isCrossfade) {
-        oldAudio.ontimeupdate = null;
-        oldAudio.onended = null;
-        activeDeck = newDeck; 
-    } else {
-        oldAudio.pause();
-        oldAudio.volume = 1;
-        oldAudio.ontimeupdate = null;
-        oldAudio.onended = null;
-    }
-
-    currentIndex = index; 
-    const song = playlist[index]; 
-    const player = document.getElementById('player');
-    
-    guardarHistorial(song.title);
-    
-    let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
-    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube Oficial";
-
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
-        navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
-        navigator.mediaSession.setActionHandler('pause', () => { document.getElementById('audio1').pause(); document.getElementById('audio2').pause(); actualizarBotonesPlay(svgPlay); });
-        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
-        navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
-    }
-
-    document.getElementById('trackName').innerText = isCrossfade ? "Mezclando..." : trackStr;
-    document.getElementById('artistName').innerText = artistStr;
-    document.getElementById('hudImg').src = song.thumb;
-    document.getElementById('ambientBg').src = song.thumb; 
-    
-    if(!preserveTime && !isCrossfade) {
-        document.getElementById('timeActual').innerText = "0:00";
-        document.getElementById('timeTotal').innerText = "-0:00";
-        document.getElementById('barraProgreso').value = 0;
-        document.getElementById('miniProgress').style.width = "0%";
-    }
-    
-    actualizarBotonesPlay(svgPause);
-    player.classList.add('active');
-
-    if (isVideoMode) {
-        oldAudio.classList.remove('show-video');
-        audio.classList.add('show-video');
-    }
-
-    audio.onended = () => { nextSong(); };
-    audio.ondurationchange = () => {
-        document.getElementById('barraProgreso').max = audio.duration;
-        document.getElementById('timeTotal').innerText = "-" + formatoTiempo(audio.duration);
-    };
-    audio.ontimeupdate = () => {
-        let d = audio.duration;
-        if (isNaN(d) || !d) return;
-
-        document.getElementById('timeTotal').innerText = "-" + formatoTiempo(d - audio.currentTime);
-        document.getElementById('timeActual').innerText = formatoTiempo(audio.currentTime);
-        document.getElementById('barraProgreso').value = audio.currentTime;
-        document.getElementById('miniProgress').style.width = ((audio.currentTime / d) * 100) + "%";
-        
-        const restante = d - audio.currentTime;
-        if (restante <= 8 && restante > 1 && !isMixing) {
-            isMixing = true; 
-            nextSong(null, true); 
-        }
-    };
-    document.getElementById('barraProgreso').oninput = (e) => { audio.currentTime = e.target.value; };
-
-    // === EL CORAZÓN DEL MÉTODO EXTREMO ===
-    if (isVideoMode) {
-        audio.src = "/api/video/" + song.id;
-        iniciarReproduccion(audio, oldAudio, isCrossfade, preserveTime);
-    } else {
-        // Habla el DJ para rellenar los 2 segundos de descarga silenciosa
-        if (!preserveTime) anunciarDJ(trackStr, artistStr, isCrossfade);
-        document.getElementById('trackName').innerText = "Inyectando en memoria RAM...";
-        
-        try {
-            // Succionamos el archivo de YouTube directo al iPhone (Cero Bloqueos)
-            const respuesta = await fetch("/api/audio/" + song.id);
-            if (!respuesta.ok) throw new Error("Fallo en tubo");
-            const blob = await respuesta.blob();
-            const urlLocal = URL.createObjectURL(blob);
-            audio.src = urlLocal;
-            
-            document.getElementById('trackName').innerText = trackStr;
-            iniciarReproduccion(audio, oldAudio, isCrossfade, preserveTime);
-        } catch(e) {
-            document.getElementById('trackName').innerText = "⚠️ Reintentando conexión...";
-        }
-    }
-}
-
-function iniciarReproduccion(audio, oldAudio, isCrossfade, preserveTime) {
-    try { if (preserveTime && typeof previousTime !== 'undefined' && previousTime > 0) audio.currentTime = previousTime; } catch(err) {}
-    
-    if (isCrossfade) {
-        audio.volume = 0;
-        audio.play().catch(()=>{});
-        
-        let volOut = 1.0;
-        let fadeOutInt = setInterval(() => {
-            volOut -= 0.05; 
-            if (volOut <= 0.05) { oldAudio.pause(); oldAudio.volume = 1; clearInterval(fadeOutInt); } 
-            else { oldAudio.volume = volOut; }
-        }, 250);
-
-        let volIn = 0;
-        let fadeInInt = setInterval(() => {
-            volIn += 0.05;
-            if (volIn >= 0.95) { audio.volume = 1; clearInterval(fadeInInt); } 
-            else { audio.volume = volIn; }
-        }, 250);
-        
-    } else {
-        audio.volume = 1;
-        audio.play().catch(()=>{});
-    }
-}
-
-function actualizarBotonesPlay(svgString) { 
-    document.getElementById('btnPlayPauseMini').innerHTML = svgString; 
-    document.getElementById('btnPlayPauseBig').innerHTML = svgString; 
-}
-
-// === BOTÓN DE PAUSA / STOP ACTIVO ===
-function togglePlay(e) {
-    if(e) e.stopPropagation();
-    const mainAudio = getAudio();
-    if (mainAudio.paused) { 
-        mainAudio.play(); 
-        actualizarBotonesPlay(svgPause); 
-    } else { 
-        mainAudio.pause(); 
-        actualizarBotonesPlay(svgPlay); 
-    }
-}    let texto = esMezcla ? frasesMezcla[Math.floor(Math.random() * frasesMezcla.length)] : frasesInicio[Math.floor(Math.random() * frasesInicio.length)];
-    
-    let msg = new SpeechSynthesisUtterance(texto);
-    msg.lang = 'es-DO'; // Acento Español (Tratará de usar dominicano o latino)
-    msg.rate = 1.15; // Velocidad de locutor
-    msg.pitch = 1.05; // Tono animado
-    window.speechSynthesis.speak(msg);
-}
-
-const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
-
-function toggleInfinity(e) {
-    if(e) e.stopPropagation();
-    isInfinityMode = !isInfinityMode;
-    document.getElementById('btnInfinity').style.color = isInfinityMode ? 'var(--accent)' : 'rgba(255,255,255,0.4)';
-}
-
-function guardarHistorial(titulo) {
-    let historial = JSON.parse(localStorage.getItem('Fami_Cerebro')) || [];
-    let artista = titulo.includes("-") ? titulo.split("-")[0].trim() : titulo.split(" ")[0];
-    historial = historial.filter(a => a !== artista);
-    historial.unshift(artista);
-    if (historial.length > 6) historial.pop();
-    localStorage.setItem('Fami_Cerebro', JSON.stringify(historial));
-}
-
-function obtenerQueryInteligente() {
-    let historial = JSON.parse(localStorage.getItem('Fami_Cerebro')) || [];
-    if (historial.length > 0) return historial[Math.floor(Math.random() * historial.length)] + " exitos mix";
-    const defaults = ["Dembow Dominicano hits", "Trap Latino Mix", "Reggaeton Mix"];
-    return defaults[Math.floor(Math.random() * defaults.length)];
-}
-
-const poolDembow = ["Dembow Dominicano hits", "El Alfa Mix", "Rochy RD Dembow", "Angel Dior Mix"];
-const poolTrap = ["Trap Latino Mix", "Anuel AA Trap", "Eladio Carrion Mix"];
-
-window.onload = async () => {
-    cargarCarrusel(obtenerQueryInteligente(), "carousel1", "favs");
-    cargarCarrusel(poolDembow[Math.floor(Math.random() * poolDembow.length)], "carousel2", "dembow");
-    cargarCarrusel(poolTrap[Math.floor(Math.random() * poolTrap.length)], "carousel3", "trap");
-    cargarBiblioteca(); 
-};
-
-function switchTab(tabId, btnElement) {
-    document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
-    btnElement.classList.add('active');
-    document.getElementById('homeView').style.display = 'none';
-    document.getElementById('searchView').style.display = 'none';
-    document.getElementById('libraryView').style.display = 'none';
-    document.getElementById('searchWrapper').style.display = 'none';
-
-    const title = document.getElementById('headerTitle');
-    if(tabId === 'home') {
-        document.getElementById('homeView').style.display = 'block';
-        title.innerText = 'Inicio';
-        cargarCarrusel(obtenerQueryInteligente(), "carousel1", "favs");
-    } else if(tabId === 'search') {
-        document.getElementById('searchView').style.display = 'grid';
-        document.getElementById('searchWrapper').style.display = 'block';
-        title.innerText = 'Buscar';
-        document.getElementById('searchBar').focus(); 
-    } else if(tabId === 'library') {
-        cargarBiblioteca();
-        document.getElementById('libraryView').style.display = 'block';
-        title.innerText = 'Biblioteca';
-    }
-}
-
-function crearHTMLTarjeta(s, actionStr) {
-    let title = s.title;
-    let artist = "Fami Music";
-    if (s.title.includes("-")) {
-        let parts = s.title.split("-");
-        artist = parts[0].trim();
-        title = parts.slice(1).join("-").trim();
-    }
-    return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=2a2a2a&color=fff'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
-}
-
-function descargarCancion(e) {
-    if(e) e.stopPropagation();
-    if(currentIndex === -1) return;
-    const song = playlist[currentIndex];
-    let biblioteca = JSON.parse(localStorage.getItem('FamiMusic_Lib')) || [];
-
-    if(!biblioteca.some(s => s.id === song.id)) {
-        biblioteca.unshift(song); 
-        localStorage.setItem('FamiMusic_Lib', JSON.stringify(biblioteca));
-        document.getElementById('btnDownload').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
-        cargarBiblioteca();
-    }
 }
 
 function cargarBiblioteca() {
@@ -522,16 +199,6 @@ async function nextSong(e = null, isCrossfade = false) {
 
 function prevSong(e) { if(e) e.stopPropagation(); if (currentIndex > 0) playIndex(currentIndex - 1, false, false); }
 
-function toggleFullScreen(e) {
-    if(e) e.stopPropagation();
-    const player = document.getElementById('player');
-    const nav = document.getElementById('appNav');
-    if(player.classList.contains('active')) {
-        player.classList.toggle('fullscreen');
-        nav.style.transform = player.classList.contains('fullscreen') ? 'translateY(100%)' : 'translateY(0)'; 
-    }
-}
-
 function formatoTiempo(segundos) {
     if (!segundos || isNaN(segundos)) return "0:00";
     const min = Math.floor(segundos / 60);
@@ -564,23 +231,12 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     guardarHistorial(song.title);
     
     let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
-    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube Oficial";
-
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
-        navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
-        navigator.mediaSession.setActionHandler('pause', () => { document.getElementById('audio1').pause(); document.getElementById('audio2').pause(); actualizarBotonesPlay(svgPlay); });
-        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
-        navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
-    }
+    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube";
 
     document.getElementById('trackName').innerText = isCrossfade ? "Mezclando..." : trackStr;
     document.getElementById('artistName').innerText = artistStr;
     document.getElementById('hudImg').src = song.thumb;
     document.getElementById('ambientBg').src = song.thumb; 
-    
-    // Disparamos la IA del DJ
-    anunciarDJ(trackStr, artistStr, isCrossfade);
     
     if(!preserveTime && !isCrossfade) {
         document.getElementById('timeActual').innerText = "0:00";
@@ -592,16 +248,21 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     actualizarBotonesPlay(svgPause);
     player.classList.add('active');
 
-    // Conecta al servidor híbrido (YouTube ID + Título para buscar en SoundCloud)
-    audio.src = "/stream?title=" + encodeURIComponent(song.title) + "&id=" + song.id;
-    
+    // Asignación ultra rápida sin esperas (Esto arregla el freeze de Safari)
+    if (isVideoMode) {
+        audio.src = "/api/video/" + song.id;
+    } else {
+        audio.src = "/api/audio/" + song.id;
+        if (!preserveTime) anunciarDJ(trackStr, artistStr, isCrossfade);
+    }
+
+    iniciarReproduccion(audio, oldAudio, isCrossfade, preserveTime);
+
     audio.onended = () => { nextSong(); };
-    
     audio.ondurationchange = () => {
         document.getElementById('barraProgreso').max = audio.duration;
         document.getElementById('timeTotal').innerText = "-" + formatoTiempo(audio.duration);
     };
-
     audio.ontimeupdate = () => {
         let d = audio.duration;
         if (isNaN(d) || !d) return;
@@ -617,7 +278,12 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
             nextSong(null, true); 
         }
     };
+    document.getElementById('barraProgreso').oninput = (e) => { audio.currentTime = e.target.value; };
+}
 
+function iniciarReproduccion(audio, oldAudio, isCrossfade, preserveTime) {
+    try { if (preserveTime && typeof previousTime !== 'undefined' && previousTime > 0) audio.currentTime = previousTime; } catch(err) {}
+    
     if (isCrossfade) {
         audio.volume = 0;
         audio.play().catch(()=>{});
@@ -640,8 +306,6 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
         audio.volume = 1;
         audio.play().catch(()=>{});
     }
-
-    document.getElementById('barraProgreso').oninput = (e) => { audio.currentTime = e.target.value; };
 }
 
 function actualizarBotonesPlay(svgString) { 
