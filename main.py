@@ -35,7 +35,8 @@ PIPED_NODES = [
     "https://api-piped.mha.fi",
     "https://piped-api.garudalinux.org",
     "https://pipedapi.moomoo.me",
-    "https://pipedapi.syncpundit.io"
+    "https://pipedapi.syncpundit.io",
+    "https://pipedapi.leptons.xyz"
 ]
 
 @app.get("/search/{q}")
@@ -51,7 +52,7 @@ def search(q: str):
         try:
             url = f"{nodo}/search?q={q_safe}&filter=music_videos"
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=8, context=ctx) as r:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
                 data = json.loads(r.read().decode('utf-8'))
                 
                 for item in data.get('items', []):
