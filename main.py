@@ -10,7 +10,7 @@ app = FastAPI(title="FamiMusic")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ←←← PON AQUÍ TU API KEY ←←←
-YOUTUBE_API_KEY = "TAIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w"
+YOUTUBE_API_KEY = "AIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w"
 
 @app.get("/")
 def home():
