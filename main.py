@@ -12,7 +12,7 @@ app = FastAPI(title="FamiMusic")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ========== VARIABLES DE ENTORNO (configúralas en Render) ==========
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+YOUTUBE_API_KEY = os.getenv("YAIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w", "")
 # Si quieres IA, también necesitarás:
 # GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
