@@ -5,14 +5,22 @@ import ssl
 import random
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+app = FastAPI(title="FamiMusic - Apple Music Style with DJ")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# SSL context for proxies
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
@@ -24,47 +32,78 @@ def home():
 @app.get("/search/{q}")
 def search(q: str):
     q_safe = urllib.parse.quote(q)
-    # Anti-caché para Safari
-    headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+    }
 
-    # Motor 1: Piped API (A prueba de bloqueos de IP)
-    nodos = ["https://pipedapi.kavin.rocks", "https://pipedapi.smnz.de", "https://pipedapi.tokhmi.xyz"]
-    random.shuffle(nodos)
+    # Updated Piped instances for 2026
+    piped_nodes = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.moomoo.me",
+        "https://pipedapi.syncpundit.io",
+        "https://pipedapi.mint.lgbt"
+    ]
+    random.shuffle(piped_nodes)
     
-    for nodo in nodos:
+    for nodo in piped_nodes:
         try:
-            req = urllib.request.Request(f"{nodo}/search?q={q_safe}&filter=all", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=4, context=ctx) as r:
-                datos = json.loads(r.read().decode('utf-8'))
+            url = f"{nodo}/search?q={q_safe}&filter=music_videos"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8, context=ctx) as r:
+                data = json.loads(r.read().decode('utf-8'))
+                
                 resultados = []
-                for item in datos.get('items', []):
-                    if item.get('type') == 'stream':
-                        video_id = item['url'].replace('/watch?v=', '')
-                        thumb = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
-                        resultados.append({"id": video_id, "title": item['title'], "thumb": thumb})
-                        if len(resultados) >= 15: break
-                if resultados: return JSONResponse(content=resultados, headers=headers)
-        except:
+                for item in data.get('items', []):
+                    if item.get('type') in ['stream', 'video', 'music']:
+                        video_url = item.get('url', '')
+                        video_id = video_url.split('v=')[-1].split('&')[0] if 'v=' in video_url else video_url.replace('/watch?v=', '')
+                        resultados.append({
+                            "id": video_id,
+                            "title": item.get('title'),
+                            "thumb": f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
+                            "duration": item.get('duration')
+                        })
+                        if len(resultados) >= 15:
+                            break
+                if resultados:
+                    return JSONResponse(content=resultados)
+        except Exception as e:
+            print(f"Error with {nodo}: {e}")
             continue
 
-    # EL SALVAVIDAS INMORTAL (Si todo falla, jamás habrá pantalla negra)
+    # Salvavidas
     salvavidas = [
-        {"id": "G8v8D-80qGk", "title": "El Alfa El Jefe - La Mama de la Mama", "thumb": "https://img.youtube.com/vi/G8v8D-80qGk/mqdefault.jpg"},
-        {"id": "LvoRzYMuTZ0", "title": "Bryant Myers, Anuel AA - Bajen Pa Ca", "thumb": "https://img.youtube.com/vi/LvoRzYMuTZ0/mqdefault.jpg"},
-        {"id": "fU9BNkGF_gM", "title": "Noriel - Diablita ft. Anuel AA", "thumb": "https://img.youtube.com/vi/fU9BNkGF_gM/mqdefault.jpg"},
-        {"id": "kxV1xPj-WwQ", "title": "El Alfa - Los Aparatos", "thumb": "https://img.youtube.com/vi/kxV1xPj-WwQ/mqdefault.jpg"}
+        {"id": "G8v8D-80qGk", "title": "El Alfa - La Mama de la Mama", "thumb": "https://img.youtube.com/vi/G8v8D-80qGk/hqdefault.jpg"},
+        {"id": "LvoRzYMuTZ0", "title": "Bryant Myers, Anuel AA - Bajen Pa Ca", "thumb": "https://img.youtube.com/vi/LvoRzYMuTZ0/hqdefault.jpg"},
+        {"id": "fU9BNkGF_gM", "title": "Noriel - Diablita", "thumb": "https://img.youtube.com/vi/fU9BNkGF_gM/hqdefault.jpg"}
     ]
-    return JSONResponse(content=salvavidas, headers=headers)
+    return JSONResponse(content=salvavidas)
 
-@app.get("/api/audio/{id}")
-def proxy_audio(id: str):
-    # Redirige el reproductor al archivo M4A nativo de Apple
-    nodos_inv = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://invidious.jing.rocks", "https://inv.nadeko.net"]
-    nodo = random.choice(nodos_inv)
-    return RedirectResponse(f"{nodo}/latest_version?id={id}&itag=140&local=true")
+@app.get("/api/audio/{video_id}")
+def get_audio(video_id: str):
+    """Proxy de audio para reproducción con control total (ideal para crossfade y DJ IA)"""
+    invidious_nodes = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://invidious.tiekoetter.com",
+        "https://yt.chocolatemoo53.com",
+        "https://invidious.privacyredirect.com"
+    ]
+    nodo = random.choice(invidious_nodes)
+    
+    stream_url = f"{nodo}/latest_version?id={video_id}&itag=140&local=true"
+    return RedirectResponse(stream_url, status_code=302)
 
-@app.get("/api/video/{id}")
-def proxy_video(id: str):
-    nodos_inv = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://invidious.jing.rocks", "https://inv.nadeko.net"]
-    nodo = random.choice(nodos_inv)
-    return RedirectResponse(f"{nodo}/latest_version?id={id}&itag=18&local=true")
+@app.get("/api/video/{video_id}")
+def get_video(video_id: str):
+    """Proxy de video si necesitas fallback"""
+    invidious_nodes = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de"
+    ]
+    nodo = random.choice(invidious_nodes)
+    stream_url = f"{nodo}/latest_version?id={video_id}&itag=18&local=true"
+    return RedirectResponse(stream_url, status_code=302)
+
+print("FamiMusic backend cargado - Listo para DJ IA y Crossfade")
