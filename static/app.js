@@ -1,28 +1,52 @@
 let playlistActual = [];
 let indiceActual = 0;
 let modoVideoActivo = false;
+let reproductorYT = null;
+let progresoIntervalo = null;
 
 // Referencias del DOM
-const elAudio = document.getElementById('audio-cancion');
-const elVideo = document.getElementById('video-cancion');
 const elArte = document.getElementById('arte-cancion');
 const uiRep = document.getElementById('reproductor-ui');
 const btnPlay = document.getElementById('btn-play');
 const barra = document.getElementById('barra-progreso');
 
-// Desbloqueo inicial para iPhone
-document.addEventListener('touchstart', () => {
-    elAudio.play().catch(()=>{}); 
-    elAudio.pause();
-}, { once: true });
+// ==========================================
+// 1. INICIALIZAR REPRODUCTOR OFICIAL DE YOUTUBE
+// ==========================================
+function onYouTubeIframeAPIReady() {
+    reproductorYT = new YT.Player('yt-video-container', {
+        height: '100%',
+        width: '100%',
+        videoId: '',
+        playerVars: {
+            'playsinline': 1, 
+            'controls': 0, // Ocultar controles nativos, usamos los de Apple Music
+            'disablekb': 1,
+            'rel': 0,
+            'modestbranding': 1
+        },
+        events: {
+            'onStateChange': cambioEstadoReproductor
+        }
+    });
+}
 
-// 1. CARGAR LA PANTALLA INICIAL SIN ERRORES
+// Cuando la canción termina, pasar a la siguiente
+function cambioEstadoReproductor(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+        pistaSiguiente();
+    }
+}
+
+// ==========================================
+// 2. CARGAR EL INICIO (CONECTANDO A DEEPSEEK)
+// ==========================================
 window.onload = () => {
     cargarFila("mix exitos 2026", "fila-destacadas");
     cargarHistorial();
     cargarFila("trap latino y reggaeton", "fila-recomendado");
     cargarFila("dembow dominicano hits", "fila-dembow");
-    cargarFila("bachata dominicana mix", "fila-bachata");
+    cargarFila("bachata dominicana exitos", "fila-bachata");
 };
 
 async function cargarFila(busqueda, idContenedor) {
@@ -30,12 +54,12 @@ async function cargarFila(busqueda, idContenedor) {
     contenedor.innerHTML = '<div class="mensaje-carga">Buscando temas...</div>';
     
     try {
-        // Asegúrate de que esta sea la ruta correcta a tu buscador
+        // Usa tu main.py exacto de DeepSeek
         const res = await fetch(`/search/${encodeURIComponent(busqueda)}`);
         if (!res.ok) throw new Error("Fallo de red");
         
         const datos = await res.json();
-        if (datos.length === 0) throw new Error("Vacío");
+        if (!datos || datos.length === 0) throw new Error("Vacío");
 
         contenedor.innerHTML = datos.map((cancion, index) => `
             <div class="card tarjeta" onclick="iniciarPista(${index}, '${escape(JSON.stringify(datos))}')">
@@ -45,11 +69,13 @@ async function cargarFila(busqueda, idContenedor) {
             </div>
         `).join('');
     } catch (error) {
-        contenedor.innerHTML = '<div class="mensaje-carga" style="color: #fa233b;">No se pudo cargar la categoría.</div>';
+        contenedor.innerHTML = '<div class="mensaje-carga" style="color: #fa233b;">No se pudo cargar. Intenta de nuevo.</div>';
     }
 }
 
-// 2. HISTORIAL
+// ==========================================
+// 3. HISTORIAL (Escuchado Recientemente)
+// ==========================================
 function cargarHistorial() {
     let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
     const cont = document.getElementById('fila-recientes');
@@ -72,11 +98,30 @@ function guardarEnHistorial(cancion) {
     h.unshift(cancion);
     if(h.length > 15) h.pop();
     localStorage.setItem('Fami_Memoria', JSON.stringify(h));
-    cargarHistorial(); // Refresca la fila en vivo
+    cargarHistorial(); 
 }
 
-// 3. EL REPRODUCTOR PRINCIPAL
+// ==========================================
+// 4. REPRODUCIR Y LA IA DEL DJ
+// ==========================================
+function anunciarDJ(cancion) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel(); 
+    let frases = [
+        `¡Sube el volumen, suena ${cancion}!`,
+        `¡Activo! Poniendo ${cancion}.`,
+        `¡Atención la cabina, entra ${cancion}!`
+    ];
+    let msg = new SpeechSynthesisUtterance(frases[Math.floor(Math.random() * frases.length)]);
+    msg.lang = 'es-US'; 
+    msg.rate = 1.15; 
+    msg.pitch = 1.1; 
+    window.speechSynthesis.speak(msg);
+}
+
 function iniciarPista(indice, listaString) {
+    if (!reproductorYT) return alert("Cargando reproductor, espera un segundo...");
+
     playlistActual = JSON.parse(unescape(listaString));
     indiceActual = indice;
     const pista = playlistActual[indiceActual];
@@ -87,38 +132,34 @@ function iniciarPista(indice, listaString) {
     elArte.src = pista.thumb;
     
     guardarEnHistorial(pista);
+    anunciarDJ(pista.title);
 
-    // =========================================================
-    // ¡AQUÍ VA LA RUTA DE DEEPSEEK QUE YA TE FUNCIONA!
-    // Reemplaza esto con el código exacto que hace sonar la música
-    const urlMagica = `/api/audio/${pista.id}`; // <- Ajusta esto si es diferente
-    const urlVideo = `/api/video/${pista.id}`; // <- Opcional si el backend lo soporta
-    
-    elAudio.src = urlMagica;
-    elVideo.src = urlVideo; 
-    // =========================================================
-
-    if (modoVideoActivo) {
-        elVideo.play().catch(()=>{});
-        elAudio.pause();
-    } else {
-        elAudio.play().catch(()=>{});
-        elVideo.pause();
-    }
+    // Cargar video oficial en YouTube Iframe y darle play
+    reproductorYT.loadVideoById(pista.id);
+    reproductorYT.playVideo();
     btnPlay.innerText = "⏸";
+
+    // Iniciar barra de progreso
+    clearInterval(progresoIntervalo);
+    progresoIntervalo = setInterval(actualizarBarra, 500);
 }
 
 function cerrarReproductor() { uiRep.classList.remove('activo'); }
 
-// 4. CONTROLES DE PAUSA Y CAMBIO
+// ==========================================
+// 5. CONTROLES Y VIDEO TOGGLE
+// ==========================================
 function alternarPlay() {
-    const reproductorActivo = modoVideoActivo ? elVideo : elAudio;
-    if (reproductorActivo.paused) {
-        reproductorActivo.play();
-        btnPlay.innerText = "⏸";
-    } else {
-        reproductorActivo.pause();
+    if (!reproductorYT) return;
+    const estado = reproductorYT.getPlayerState();
+    
+    // 1 es PLAYING
+    if (estado === 1) {
+        reproductorYT.pauseVideo();
         btnPlay.innerText = "▶";
+    } else {
+        reproductorYT.playVideo();
+        btnPlay.innerText = "⏸";
     }
 }
 
@@ -127,35 +168,23 @@ function alternarModoVideo() {
     const btnV = document.getElementById('btn-toggle-video');
     
     if (modoVideoActivo) {
-        elArte.classList.remove('activo');
-        elVideo.classList.add('activo');
+        // Ocultar portada para ver el iframe de video
+        elArte.classList.add('oculto');
         btnV.classList.add('encendido');
         btnV.innerText = "Modo Video: ON";
-        
-        elVideo.currentTime = elAudio.currentTime;
-        elAudio.pause();
-        elVideo.play();
     } else {
-        elVideo.classList.remove('activo');
-        elArte.classList.add('activo');
+        // Mostrar portada encima del iframe (Modo Audio)
+        elArte.classList.remove('oculto');
         btnV.classList.remove('encendido');
         btnV.innerText = "Modo Video: OFF";
-        
-        elAudio.currentTime = elVideo.currentTime;
-        elVideo.pause();
-        elAudio.play();
     }
 }
-
-// 5. REPRODUCCIÓN AUTOMÁTICA
-elAudio.onended = () => pistaSiguiente();
-elVideo.onended = () => pistaSiguiente();
 
 function pistaSiguiente() {
     if (indiceActual < playlistActual.length - 1) {
         iniciarPista(indiceActual + 1, escape(JSON.stringify(playlistActual)));
     } else {
-        iniciarPista(0, escape(JSON.stringify(playlistActual))); // Reinicia si se acaba
+        iniciarPista(0, escape(JSON.stringify(playlistActual))); 
     }
 }
 
@@ -163,27 +192,31 @@ function pistaAnterior() {
     if (indiceActual > 0) iniciarPista(indiceActual - 1, escape(JSON.stringify(playlistActual)));
 }
 
+// ==========================================
 // 6. BARRA DE PROGRESO
+// ==========================================
 function formatoTiempo(segundos) {
-    if (isNaN(segundos)) return "0:00";
+    if (isNaN(segundos) || segundos < 0) return "0:00";
     let min = Math.floor(segundos / 60);
     let sec = Math.floor(segundos % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-function actualizarBarra(medio) {
-    if (!isNaN(medio.duration)) {
-        barra.max = medio.duration;
-        barra.value = medio.currentTime;
-        document.getElementById('tiempo-actual').innerText = formatoTiempo(medio.currentTime);
-        document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(medio.duration - medio.currentTime);
+function actualizarBarra() {
+    if (!reproductorYT || !reproductorYT.getDuration) return;
+    
+    const duracion = reproductorYT.getDuration();
+    const actual = reproductorYT.getCurrentTime();
+    
+    if (duracion > 0) {
+        barra.max = duracion;
+        barra.value = actual;
+        document.getElementById('tiempo-actual').innerText = formatoTiempo(actual);
+        document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(duracion - actual);
     }
 }
 
-elAudio.ontimeupdate = () => { if(!modoVideoActivo) actualizarBarra(elAudio); };
-elVideo.ontimeupdate = () => { if(modoVideoActivo) actualizarBarra(elVideo); };
-
+// Adelantar canción si tocan la barra
 barra.oninput = (e) => {
-    const medio = modoVideoActivo ? elVideo : elAudio;
-    medio.currentTime = e.target.value;
+    if (reproductorYT) reproductorYT.seekTo(e.target.value, true);
 };
