@@ -37,38 +37,6 @@ function anunciarDJ(cancion, artista, esMezcla) {
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
-// === EL NUEVO CEREBRO (BUSCADOR DIRECTO DESDE TU MAC/IPHONE) ===
-async function buscarEnRedGlobal(query) {
-    const nodos = [
-        "https://invidious.jing.rocks",
-        "https://inv.tux.pizza",
-        "https://invidious.nerdvpn.de",
-        "https://inv.nadeko.net"
-    ];
-    nodos.sort(() => Math.random() - 0.5); // Aleatorio para no saturar
-
-    for (let nodo of nodos) {
-        try {
-            const res = await fetch(`${nodo}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
-            if (!res.ok) continue;
-            const data = await res.json();
-            let resultados = [];
-            for (let item of data) {
-                if (item.videoId) {
-                    resultados.push({
-                        id: item.videoId,
-                        title: item.title,
-                        thumb: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg` // Imagen HD directa que Safari sí acepta
-                    });
-                }
-                if (resultados.length >= 15) break;
-            }
-            if (resultados.length > 0) return resultados;
-        } catch (e) { console.log("Fallo nodo, intentando el siguiente..."); }
-    }
-    return [];
-}
-
 function toggleVideoMode(e) {
     if(e) e.stopPropagation();
     isVideoMode = !isVideoMode;
@@ -117,13 +85,10 @@ window.onload = async () => {
     cargarCarrusel(poolTrap[Math.floor(Math.random() * poolTrap.length)], "carousel3", "trap");
     cargarBiblioteca(); 
     
-    // Hacemos que toda el área del reproductor sea clicable para maximizar
     const player = document.getElementById('player');
     if(player) {
         player.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
-                toggleFullScreen();
-            }
+            if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) toggleFullScreen();
         });
     }
 };
@@ -192,14 +157,13 @@ function eliminarDeBiblioteca(e, id) {
 async function cargarCarrusel(query, containerId, memoriaKey) {
     const container = document.getElementById(containerId);
     try {
-        const data = await buscarEnRedGlobal(query);
+        const res = await fetch("/search/" + encodeURIComponent(query) + "?_t=" + Date.now());
+        const data = await res.json();
         if (data.length > 0) {
             memoriasInicio[memoriaKey] = data; 
             container.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playDesdeCarrusel('${memoriaKey}', ${index})`)).join('');
         }
-    } catch (e) {
-        container.innerHTML = `<p style="padding:20px; color:#fa233b;">Error de conexión. Intenta recargar.</p>`;
-    }
+    } catch (e) {}
 }
 
 function playDesdeCarrusel(memoriaKey, index) { playlist = memoriasInicio[memoriaKey]; playIndex(index); }
@@ -216,7 +180,8 @@ document.getElementById('searchBar').oninput = (e) => {
     searchTimeout = setTimeout(async () => {
         searchView.innerHTML = "<p style='padding: 20px; color: #fa233b;'>Buscando opciones...</p>";
         try {
-            const data = await buscarEnRedGlobal(query);
+            const res = await fetch("/search/" + encodeURIComponent(query) + "?_t=" + Date.now());
+            const data = await res.json();
             playlist = data; 
             if(data.length === 0) {
                 searchView.innerHTML = "<p style='padding: 20px; color: #888;'>No se encontraron resultados.</p>";
@@ -236,11 +201,10 @@ async function nextSong(e = null, isCrossfade = false) {
         let artist = lastSong.title.includes("-") ? lastSong.title.split("-")[0].trim() : lastSong.title;
         try {
             if(!isCrossfade) document.getElementById('trackName').innerText = "🤖 Buscando...";
-            const data = await buscarEnRedGlobal(artist + " mix oficial");
-            if(data.length > 0) {
-                playlist = playlist.concat(data);
-                playIndex(currentIndex + 1, false, isCrossfade);
-            }
+            const res = await fetch("/search/" + encodeURIComponent(artist + " mix oficial") + "?_t=" + Date.now());
+            const data = await res.json();
+            playlist = playlist.concat(data);
+            playIndex(currentIndex + 1, false, isCrossfade);
         } catch(err) { playIndex(0, false, false); }
     } else { playIndex(0, false, false); }
 }
@@ -313,7 +277,6 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     
     actualizarBotonesPlay(svgPause);
     
-    // Forzamos al reproductor a levantarse para que lo veas claro
     player.classList.add('active');
     setTimeout(() => {
         if(!player.classList.contains('fullscreen')) {
@@ -323,16 +286,13 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
         }
     }, 150);
 
-    // === REPRODUCCIÓN DIRECTA DESDE LA MAC/IPHONE (Adiós Render) ===
-    const nodos_inv = ["https://invidious.jing.rocks", "https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://inv.nadeko.net"];
-    const nodoSeleccionado = nodos_inv[Math.floor(Math.random() * nodos_inv.length)];
-    
+    // Conecta con Render para el Audio/Video
     if (isVideoMode) {
         oldAudio.classList.remove('show-video');
         audio.classList.add('show-video');
-        audio.src = `${nodoSeleccionado}/latest_version?id=${song.id}&itag=18&local=true`;
+        audio.src = "/api/video/" + song.id;
     } else {
-        audio.src = `${nodoSeleccionado}/latest_version?id=${song.id}&itag=140&local=true`;
+        audio.src = "/api/audio/" + song.id;
         if (!preserveTime) anunciarDJ(trackStr, artistStr, isCrossfade);
     }
 
