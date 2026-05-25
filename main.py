@@ -5,7 +5,7 @@ import yt_dlp
 import random
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -23,42 +23,35 @@ def home():
 
 @app.get("/search/{q}")
 def search(q: str):
-    # LA CARA: Buscamos en YouTube para tener fotos HD y el catálogo oficial completo
+    # LA CARA: Buscador oficial de YouTube para portadas HD y artistas reales
     with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
         info = ydl.extract_info(f"ytsearch15:{q}", download=False)
         return [{"id": e['id'], "title": e['title'], "thumb": f"https://wsrv.nl/?url=https://img.youtube.com/vi/{e['id']}/mqdefault.jpg"} for e in info.get('entries', []) if e.get('id')]
 
-@app.get("/stream")
-def stream(title: str, id: str):
-    # EL MOTOR 1: Tomamos el título oficial y sacamos el MP3 rápido de SoundCloud
+@app.get("/api/audio/{id}")
+def proxy_audio(id: str):
+    # EL MÉTODO EXTREMO: Render se convierte en un tubo de descarga directa
     try:
-        with yt_dlp.YoutubeDL({'extract_flat': True, 'quiet': True}) as ydl:
-            busqueda = ydl.extract_info(f"scsearch1:{title}", download=False)
-            if busqueda and busqueda.get('entries'):
-                sc_url = busqueda['entries'][0]['url']
-                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl2:
-                    audio_info = ydl2.extract_info(sc_url, download=False)
-                    if audio_info.get('url'):
-                        return RedirectResponse(audio_info['url'])
-    except:
-        pass
+        ydl_opts = {'format': 'bestaudio[ext=m4a]/bestaudio/best', 'quiet': True, 'nocheckcertificate': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={id}", download=False)
+            url_real = info['url']
         
-    # EL MOTOR 2 (PLAN B): Si la canción no está en SoundCloud, usamos la red Piped (YouTube)
-    nodos = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.tokhmi.xyz",
-        "https://pipedapi.smnz.de"
-    ]
-    random.shuffle(nodos)
-    for nodo in nodos:
-        try:
-            req = urllib.request.Request(f"{nodo}/streams/{id}", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=3, context=ctx) as r:
-                datos = json.loads(r.read())
-                for f in datos.get('audioStreams', []):
-                    if f.get('format') == 'M4A':
-                        return RedirectResponse(f['url'])
-        except:
-            continue
-            
-    return RedirectResponse("/")
+        req = urllib.request.Request(url_real, headers={'User-Agent': 'Mozilla/5.0'})
+        respuesta = urllib.request.urlopen(req, context=ctx)
+        
+        def tubo_de_datos():
+            while True:
+                pedazo = respuesta.read(65536) # Mandamos 64KB por paquete a la RAM del celular
+                if not pedazo: break
+                yield pedazo
+                
+        return StreamingResponse(tubo_de_datos(), media_type="audio/mp4")
+    except Exception as e:
+        return RedirectResponse(f"https://inv.tux.pizza/latest_version?id={id}&itag=140&local=true")
+
+@app.get("/api/video/{id}")
+def proxy_video(id: str):
+    # El video es muy pesado para el Tubo RAM, usamos la red europea blindada
+    nodos = ["https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://invidious.jing.rocks"]
+    return RedirectResponse(f"{random.choice(nodos)}/latest_version?id={id}&itag=18&local=true")
