@@ -1,179 +1,189 @@
 let playlistActual = [];
 let indiceActual = 0;
-let modoVideo = false;
+let modoVideoActivo = false;
 
-// Elementos del DOM
-const audioEl = document.getElementById('main-audio');
-const videoEl = document.getElementById('player-video');
-const imgEl = document.getElementById('player-img');
-const playerUI = document.getElementById('player-ui');
-const btnPlayPause = document.getElementById('btn-play-pause');
+// Referencias del DOM
+const elAudio = document.getElementById('audio-cancion');
+const elVideo = document.getElementById('video-cancion');
+const elArte = document.getElementById('arte-cancion');
+const uiRep = document.getElementById('reproductor-ui');
+const btnPlay = document.getElementById('btn-play');
+const barra = document.getElementById('barra-progreso');
 
-// === 1. CARGAR EL INICIO PROFESIONAL ===
+// Desbloqueo inicial para iPhone
+document.addEventListener('touchstart', () => {
+    elAudio.play().catch(()=>{}); 
+    elAudio.pause();
+}, { once: true });
+
+// 1. CARGAR LA PANTALLA INICIAL SIN ERRORES
 window.onload = () => {
-    // Aquí puedes poner las rutas correctas a tu backend para cargar cada fila
-    cargarFila("mix exitos 2026", "sec-destacadas");
-    cargarHistorial("sec-recientes"); // Lee del LocalStorage
-    cargarFila("trap latino y reggaeton", "sec-recomendado");
-    cargarFila("dembow dominicano hits", "sec-dembow");
-    cargarFila("bachata dominicana exitos", "sec-bachata");
+    cargarFila("mix exitos 2026", "fila-destacadas");
+    cargarHistorial();
+    cargarFila("trap latino y reggaeton", "fila-recomendado");
+    cargarFila("dembow dominicano hits", "fila-dembow");
+    cargarFila("bachata dominicana mix", "fila-bachata");
 };
 
-async function cargarFila(busqueda, contenedorId) {
-    // Ajusta la URL "/search" por la que estés usando ahora con DeepSeek
+async function cargarFila(busqueda, idContenedor) {
+    const contenedor = document.getElementById(idContenedor);
+    contenedor.innerHTML = '<div class="mensaje-carga">Buscando temas...</div>';
+    
     try {
-        const respuesta = await fetch(`/search/${encodeURIComponent(busqueda)}`);
-        const datos = await respuesta.json();
-        const html = datos.map((cancion, index) => {
-            return `
-            <div class="card" onclick="reproducirPista(${index}, '${escape(JSON.stringify(datos))}')">
-                <img src="${cancion.thumb}" alt="Cover">
-                <div class="card-title">${cancion.title}</div>
-                <div class="card-artist">Fami Music</div>
-            </div>`;
-        }).join('');
-        document.getElementById(contenedorId).innerHTML = html;
-    } catch (e) {
-        console.log("Error cargando fila: ", busqueda);
+        // Asegúrate de que esta sea la ruta correcta a tu buscador
+        const res = await fetch(`/search/${encodeURIComponent(busqueda)}`);
+        if (!res.ok) throw new Error("Fallo de red");
+        
+        const datos = await res.json();
+        if (datos.length === 0) throw new Error("Vacío");
+
+        contenedor.innerHTML = datos.map((cancion, index) => `
+            <div class="card tarjeta" onclick="iniciarPista(${index}, '${escape(JSON.stringify(datos))}')">
+                <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=1c1c1e&color=fff'">
+                <div class="titulo-tarjeta">${cancion.title}</div>
+                <div class="artista-tarjeta">YouTube</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        contenedor.innerHTML = '<div class="mensaje-carga" style="color: #fa233b;">No se pudo cargar la categoría.</div>';
     }
 }
 
-function cargarHistorial(contenedorId) {
-    let historial = JSON.parse(localStorage.getItem('Fami_Historial')) || [];
+// 2. HISTORIAL
+function cargarHistorial() {
+    let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
+    const cont = document.getElementById('fila-recientes');
     if(historial.length === 0) {
-        document.getElementById(contenedorId).innerHTML = '<p style="color:#a1a1a6; font-size:14px;">Aún no hay canciones escuchadas.</p>';
+        cont.innerHTML = '<div class="mensaje-carga">Aún no hay música escuchada.</div>';
         return;
     }
-    // Renderizar historial...
+    cont.innerHTML = historial.map((c, i) => `
+        <div class="card tarjeta" onclick="iniciarPista(${i}, '${escape(JSON.stringify(historial))}')">
+            <img src="${c.thumb}">
+            <div class="titulo-tarjeta">${c.title}</div>
+            <div class="artista-tarjeta">Reciente</div>
+        </div>
+    `).join('');
 }
 
-// === 2. EL MOTOR DE REPRODUCCIÓN (INTEGRACIÓN DE DEEPSEEK) ===
-function reproducirPista(indice, listaStringificada) {
-    playlistActual = JSON.parse(unescape(listaStringificada));
+function guardarEnHistorial(cancion) {
+    let h = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
+    h = h.filter(item => item.id !== cancion.id);
+    h.unshift(cancion);
+    if(h.length > 15) h.pop();
+    localStorage.setItem('Fami_Memoria', JSON.stringify(h));
+    cargarHistorial(); // Refresca la fila en vivo
+}
+
+// 3. EL REPRODUCTOR PRINCIPAL
+function iniciarPista(indice, listaString) {
+    playlistActual = JSON.parse(unescape(listaString));
     indiceActual = indice;
-    const cancion = playlistActual[indiceActual];
+    const pista = playlistActual[indiceActual];
 
-    // Subir la interfaz de Apple Music
-    playerUI.classList.add('active');
-    document.getElementById('player-title').innerText = cancion.title;
-    imgEl.src = cancion.thumb;
-
-    // Guardar en historial
-    guardarEnHistorial(cancion);
-
-    // =========================================================
-    // AQUÍ PONES EL CÓDIGO DE REPRODUCCIÓN QUE TE DIO DEEPSEEK
-    // Ejemplo:
-    // const urlMusica = `/tu_ruta_magica_deepseek?id=${cancion.id}`;
-    // audioEl.src = urlMusica;
-    // videoEl.src = urlMusica; // Si tu ruta soporta MP4 de video
-    // =========================================================
-
-    if(modoVideo) {
-        videoEl.play().catch(e => console.log(e));
-        audioEl.pause();
-    } else {
-        audioEl.play().catch(e => console.log(e));
-        videoEl.pause();
-    }
+    // Levantar interfaz
+    uiRep.classList.add('activo');
+    document.getElementById('titulo-actual').innerText = pista.title;
+    elArte.src = pista.thumb;
     
-    btnPlayPause.innerText = "⏸";
+    guardarEnHistorial(pista);
+
+    // =========================================================
+    // ¡AQUÍ VA LA RUTA DE DEEPSEEK QUE YA TE FUNCIONA!
+    // Reemplaza esto con el código exacto que hace sonar la música
+    const urlMagica = `/api/audio/${pista.id}`; // <- Ajusta esto si es diferente
+    const urlVideo = `/api/video/${pista.id}`; // <- Opcional si el backend lo soporta
+    
+    elAudio.src = urlMagica;
+    elVideo.src = urlVideo; 
+    // =========================================================
+
+    if (modoVideoActivo) {
+        elVideo.play().catch(()=>{});
+        elAudio.pause();
+    } else {
+        elAudio.play().catch(()=>{});
+        elVideo.pause();
+    }
+    btnPlay.innerText = "⏸";
 }
 
-// === 3. REPRODUCCIÓN AUTOMÁTICA (SIGUIENTE CANCIÓN) ===
-audioEl.onended = () => cancionSiguiente();
-videoEl.onended = () => cancionSiguiente();
+function cerrarReproductor() { uiRep.classList.remove('activo'); }
 
-function cancionSiguiente() {
+// 4. CONTROLES DE PAUSA Y CAMBIO
+function alternarPlay() {
+    const reproductorActivo = modoVideoActivo ? elVideo : elAudio;
+    if (reproductorActivo.paused) {
+        reproductorActivo.play();
+        btnPlay.innerText = "⏸";
+    } else {
+        reproductorActivo.pause();
+        btnPlay.innerText = "▶";
+    }
+}
+
+function alternarModoVideo() {
+    modoVideoActivo = !modoVideoActivo;
+    const btnV = document.getElementById('btn-toggle-video');
+    
+    if (modoVideoActivo) {
+        elArte.classList.remove('activo');
+        elVideo.classList.add('activo');
+        btnV.classList.add('encendido');
+        btnV.innerText = "Modo Video: ON";
+        
+        elVideo.currentTime = elAudio.currentTime;
+        elAudio.pause();
+        elVideo.play();
+    } else {
+        elVideo.classList.remove('activo');
+        elArte.classList.add('activo');
+        btnV.classList.remove('encendido');
+        btnV.innerText = "Modo Video: OFF";
+        
+        elAudio.currentTime = elVideo.currentTime;
+        elVideo.pause();
+        elAudio.play();
+    }
+}
+
+// 5. REPRODUCCIÓN AUTOMÁTICA
+elAudio.onended = () => pistaSiguiente();
+elVideo.onended = () => pistaSiguiente();
+
+function pistaSiguiente() {
     if (indiceActual < playlistActual.length - 1) {
-        reproducirPista(indiceActual + 1, escape(JSON.stringify(playlistActual)));
+        iniciarPista(indiceActual + 1, escape(JSON.stringify(playlistActual)));
     } else {
-        // Si se acaba la lista, vuelve a la primera
-        reproducirPista(0, escape(JSON.stringify(playlistActual)));
+        iniciarPista(0, escape(JSON.stringify(playlistActual))); // Reinicia si se acaba
     }
 }
 
-function cancionAnterior() {
-    if (indiceActual > 0) {
-        reproducirPista(indiceActual - 1, escape(JSON.stringify(playlistActual)));
-    }
+function pistaAnterior() {
+    if (indiceActual > 0) iniciarPista(indiceActual - 1, escape(JSON.stringify(playlistActual)));
 }
 
-// === 4. CONTROLES Y VIDEO ===
-function togglePlay() {
-    const medioActivo = modoVideo ? videoEl : audioEl;
-    if (medioActivo.paused) {
-        medioActivo.play();
-        btnPlayPause.innerText = "⏸";
-    } else {
-        medioActivo.pause();
-        btnPlayPause.innerText = "▶";
-    }
-}
-
-function alternarVideo() {
-    modoVideo = !modoVideo;
-    const btn = document.getElementById('btn-video');
-    
-    if(modoVideo) {
-        imgEl.classList.remove('active');
-        videoEl.classList.add('active');
-        btn.classList.add('on');
-        btn.innerText = "Desactivar Video";
-        
-        // Pausar audio, arrancar video en el mismo segundo
-        videoEl.currentTime = audioEl.currentTime;
-        audioEl.pause();
-        videoEl.play();
-    } else {
-        videoEl.classList.remove('active');
-        imgEl.classList.add('active');
-        btn.classList.remove('on');
-        btn.innerText = "Activar Video";
-        
-        // Pausar video, arrancar audio en el mismo segundo
-        audioEl.currentTime = videoEl.currentTime;
-        videoEl.pause();
-        audioEl.play();
-    }
-}
-
-function cerrarReproductor() {
-    playerUI.classList.remove('active');
-}
-
-// === 5. BARRA DE PROGRESO ===
-function actualizarProgreso(medio) {
-    const actual = document.getElementById('time-current');
-    const total = document.getElementById('time-total');
-    const barra = document.getElementById('progress-bar');
-    
-    if(!isNaN(medio.duration)) {
-        barra.max = medio.duration;
-        barra.value = medio.currentTime;
-        actual.innerText = formatearTiempo(medio.currentTime);
-        total.innerText = "-" + formatearTiempo(medio.duration - medio.currentTime);
-    }
-}
-
-audioEl.ontimeupdate = () => { if(!modoVideo) actualizarProgreso(audioEl); };
-videoEl.ontimeupdate = () => { if(modoVideo) actualizarProgreso(videoEl); };
-
-document.getElementById('progress-bar').oninput = (e) => {
-    const medioActivo = modoVideo ? videoEl : audioEl;
-    medioActivo.currentTime = e.target.value;
-};
-
-function formatearTiempo(segundos) {
+// 6. BARRA DE PROGRESO
+function formatoTiempo(segundos) {
+    if (isNaN(segundos)) return "0:00";
     let min = Math.floor(segundos / 60);
     let sec = Math.floor(segundos % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-function guardarEnHistorial(cancion) {
-    let historial = JSON.parse(localStorage.getItem('Fami_Historial')) || [];
-    historial = historial.filter(c => c.id !== cancion.id);
-    historial.unshift(cancion);
-    if(historial.length > 10) historial.pop();
-    localStorage.setItem('Fami_Historial', JSON.stringify(historial));
+function actualizarBarra(medio) {
+    if (!isNaN(medio.duration)) {
+        barra.max = medio.duration;
+        barra.value = medio.currentTime;
+        document.getElementById('tiempo-actual').innerText = formatoTiempo(medio.currentTime);
+        document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(medio.duration - medio.currentTime);
+    }
 }
+
+elAudio.ontimeupdate = () => { if(!modoVideoActivo) actualizarBarra(elAudio); };
+elVideo.ontimeupdate = () => { if(modoVideoActivo) actualizarBarra(elVideo); };
+
+barra.oninput = (e) => {
+    const medio = modoVideoActivo ? elVideo : elAudio;
+    medio.currentTime = e.target.value;
+};
