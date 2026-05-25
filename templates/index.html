@@ -2,101 +2,284 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FamiMusic - Test</title>
-    <style>
-        body { font-family: sans-serif; background: #0a0a0a; color: white; padding: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 20px; }
-        .card { background: #1e1e1e; border-radius: 12px; padding: 12px; cursor: pointer; }
-        .card img { width: 100%; border-radius: 8px; }
-        .card h3 { font-size: 14px; margin: 8px 0 0; }
-        .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; padding: 12px; display: flex; gap: 12px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>FamiMusic — Apple Music Style</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>FamiMusic - Prueba de API</h1>
-    <div id="results" class="grid">Cargando...</div>
-    <div id="player-bar" class="player-bar" style="display: none;">
-        <img id="current-thumb" width="48" height="48">
-        <span id="current-title"></span>
-        <button id="play-pause">▶️</button>
-    </div>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 13c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z" fill="url(#grad)"/>
+                    <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff6a88"/><stop offset="100%" stop-color="#ff99ac"/></linearGradient></defs>
+                </svg>
+                <span>FamiMusic</span>
+            </div>
+            <nav class="nav-links">
+                <a href="#" data-section="home" class="active">Para Ti</a>
+                <a href="#" data-section="explore">Explorar</a>
+                <a href="#" data-section="radio">Radio</a>
+            </nav>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar canciones, artistas...">
+            </div>
+            <div class="playlists">
+                <p class="section-title">Tus listas</p>
+                <ul>
+                    <li data-playlist="favorites">❤️ Favoritos</li>
+                    <li data-playlist="mix">🎧 Mezcla diaria</li>
+                    <li data-playlist="driving">🚗 Conducción</li>
+                </ul>
+            </div>
+        </aside>
 
-    <div id="youtube-player" style="position: absolute; bottom: 0; opacity: 0;"></div>
+        <main class="main-content" id="mainContent"></main>
+
+        <!-- Reproductor flotante estilo Apple Music -->
+        <div class="player-bar" id="playerBar" style="display: none;">
+            <div class="player-info">
+                <img id="currentThumb" src="" alt="cover" width="48" height="48">
+                <div class="track-details">
+                    <div id="currentTitle" class="track-title"></div>
+                    <div class="track-artist">FamiMusic</div>
+                </div>
+            </div>
+            <div class="player-controls">
+                <button id="playPauseBtn" class="control-btn">⏸️</button>
+                <button id="favBtn" class="control-btn">❤️</button>
+            </div>
+            <div id="youtube-player" style="position: absolute; bottom: 0; left: 0; opacity: 0; pointer-events: none;"></div>
+        </div>
+    </div>
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        // ---------- GLOBALES ----------
         let player;
         let currentVideoId = null;
         let isPlaying = false;
+        let currentSongData = null;
+        let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
 
+        // ---------- INICIALIZAR PLAYER (con mute=1 para autoplay silencioso) ----------
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('youtube-player', {
-                height: '0', width: '0',
-                playerVars: { autoplay: 0, controls: 0, mute: 1, enablejsapi: 1 },
+                height: '0',
+                width: '0',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                    enablejsapi: 1,
+                    mute: 1  // Necesario para que el navegador permita el autoplay
+                },
                 events: {
-                    onReady: () => console.log("Player listo"),
-                    onStateChange: (e) => {
-                        if (e.data === YT.PlayerState.PLAYING) {
-                            isPlaying = true;
-                            document.getElementById('play-pause').textContent = '⏸️';
-                            if (player.isMuted()) {
-                                let btn = document.createElement('button');
-                                btn.textContent = 'Activar sonido';
-                                btn.onclick = () => { player.unMute(); btn.remove(); };
-                                document.body.appendChild(btn);
-                            }
-                        } else if (e.data === YT.PlayerState.PAUSED) {
-                            isPlaying = false;
-                            document.getElementById('play-pause').textContent = '▶️';
-                        }
-                    }
+                    onReady: () => console.log("✅ Player listo"),
+                    onStateChange: onPlayerStateChange
                 }
             });
         }
 
-        async function loadSongs() {
-            try {
-                const res = await fetch('/search/música');
-                if (!res.ok) throw new Error('Error HTTP: ' + res.status);
-                const songs = await res.json();
-                console.log('Canciones recibidas:', songs);
-                const container = document.getElementById('results');
-                if (!songs.length) {
-                    container.innerHTML = '<p>No se encontraron canciones. Revisa la consola.</p>';
-                    return;
-                }
-                container.innerHTML = '';
-                songs.forEach(song => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <img src="${song.thumb}" onerror="this.src='https://via.placeholder.com/200'">
-                        <h3>${escapeHtml(song.title)}</h3>
-                    `;
-                    card.onclick = () => playSong(song.id, song.title, song.thumb);
-                    container.appendChild(card);
-                });
-            } catch (err) {
-                console.error('Error al cargar canciones:', err);
-                document.getElementById('results').innerHTML = `<p>Error: ${err.message}. Verifica que el backend esté funcionando y la API key configurada.</p>`;
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.PLAYING) {
+                isPlaying = true;
+                document.getElementById('playPauseBtn').textContent = '⏸️';
+            } else if (event.data === YT.PlayerState.PAUSED) {
+                isPlaying = false;
+                document.getElementById('playPauseBtn').textContent = '▶️';
             }
         }
 
-        function playSong(id, title, thumb) {
+        // ---------- REPRODUCIR CANCIÓN (con desmutado automático al clic) ----------
+        function playSong(videoId, title, thumb) {
             if (!player) return;
-            currentVideoId = id;
-            document.getElementById('current-title').textContent = title;
-            document.getElementById('current-thumb').src = thumb;
-            document.getElementById('player-bar').style.display = 'flex';
-            player.loadVideoById({ videoId: id, startSeconds: 0 });
+            currentVideoId = videoId;
+            currentSongData = { id: videoId, title, thumb };
+            document.getElementById('playerBar').style.display = 'flex';
+            document.getElementById('currentTitle').textContent = title;
+            document.getElementById('currentThumb').src = thumb;
+            updateFavButtonState();
+            
+            // Cargar el video y reproducir
+            player.loadVideoById({ videoId, startSeconds: 0 });
+            // El usuario hizo clic → desmutear para que suene inmediatamente
+            player.unMute();
         }
 
-        document.getElementById('play-pause').onclick = () => {
+        // Control de play/pause
+        document.getElementById('playPauseBtn').addEventListener('click', () => {
             if (!currentVideoId) return;
             if (isPlaying) player.pauseVideo();
             else player.playVideo();
-        };
+        });
+
+        // ---------- FAVORITOS ----------
+        function updateFavButtonState() {
+            const btn = document.getElementById('favBtn');
+            if (!currentSongData) return;
+            const isFav = favorites.some(f => f.id === currentSongData.id);
+            btn.textContent = isFav ? '❤️' : '🤍';
+        }
+
+        document.getElementById('favBtn').addEventListener('click', () => {
+            if (!currentSongData) return;
+            const index = favorites.findIndex(f => f.id === currentSongData.id);
+            if (index === -1) {
+                favorites.push(currentSongData);
+            } else {
+                favorites.splice(index, 1);
+            }
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            updateFavButtonState();
+            if (document.querySelector('.nav-links a.active')?.textContent.includes('Favoritos')) {
+                loadFavoritesView();
+            }
+        });
+
+        // ---------- RENDERIZADO DE TARJETAS (ESTILO APPLE MUSIC) ----------
+        function renderCards(songs, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            if (!songs.length) {
+                container.innerHTML = '<div class="loading-cards">🎵 No hay canciones disponibles</div>';
+                return;
+            }
+            songs.forEach(song => {
+                const card = document.createElement('div');
+                card.className = 'music-card';
+                card.innerHTML = `
+                    <div class="card-img">
+                        <img src="${song.thumb}" alt="${escapeHtml(song.title)}">
+                        <button class="play-btn-overlay" data-id="${song.id}" data-title="${escapeHtml(song.title)}" data-thumb="${song.thumb}">▶</button>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-title">${escapeHtml(song.title)}</div>
+                        <div class="card-sub">Artista</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            // Asignar eventos a los botones de play
+            document.querySelectorAll('.play-btn-overlay').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    playSong(btn.dataset.id, btn.dataset.title, btn.dataset.thumb);
+                });
+            });
+        }
+
+        // ---------- CONEXIÓN CON EL BACKEND ----------
+        async function fetchSongs(query, maxResults = 20) {
+            try {
+                const res = await fetch(`/search/${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            } catch (err) {
+                console.error(err);
+                return [];
+            }
+        }
+
+        // ---------- VISTAS ----------
+        async function loadHome() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="hero"><h1>Buenas noches</h1><p>Escucha lo que te gusta, sin interrupciones.</p></div>
+                <div class="section-header"><h2>Recomendado para ti</h2></div>
+                <div class="cards-grid" id="homeGrid"></div>
+            `;
+            const songs = await fetchSongs('música popular', 20);
+            renderCards(songs, 'homeGrid');
+        }
+
+        async function loadExplore() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>Explorar</h2></div>
+                <div class="cards-grid" id="exploreGrid"></div>
+            `;
+            const songs = await fetchSongs('exitos 2025', 20);
+            renderCards(songs, 'exploreGrid');
+        }
+
+        async function loadRadio() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>Radio FamiMusic</h2><p>Mezcla aleatoria</p></div>
+                <div class="cards-grid" id="radioGrid"></div>
+            `;
+            const songs = await fetchSongs('random mix', 16);
+            renderCards(songs, 'radioGrid');
+        }
+
+        async function loadMixDiaria() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>🎧 Mezcla diaria</h2></div>
+                <div class="cards-grid" id="mixGrid"></div>
+            `;
+            const songs = await fetchSongs('daily mix', 18);
+            renderCards(songs, 'mixGrid');
+        }
+
+        async function loadDriving() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>🚗 Conducción</h2></div>
+                <div class="cards-grid" id="drivingGrid"></div>
+            `;
+            const songs = await fetchSongs('driving music', 16);
+            renderCards(songs, 'drivingGrid');
+        }
+
+        function loadFavoritesView() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>❤️ Tus favoritos</h2></div>
+                <div class="cards-grid" id="favGrid"></div>
+            `;
+            renderCards(favorites, 'favGrid');
+        }
+
+        async function performSearch(query) {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="section-header"><h2>Resultados: "${escapeHtml(query)}"</h2></div>
+                <div class="cards-grid" id="searchGrid"></div>
+            `;
+            const songs = await fetchSongs(query, 24);
+            if (songs.length === 0) {
+                document.getElementById('searchGrid').innerHTML = '<div class="loading-cards">No se encontraron canciones</div>';
+            } else {
+                renderCards(songs, 'searchGrid');
+            }
+        }
+
+        // ---------- EVENTOS DEL SIDEBAR ----------
+        function setupEvents() {
+            document.querySelectorAll('.nav-links a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-links a').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    const section = link.dataset.section;
+                    if (section === 'home') loadHome();
+                    else if (section === 'explore') loadExplore();
+                    else if (section === 'radio') loadRadio();
+                });
+            });
+            document.querySelectorAll('.playlists li').forEach(li => {
+                li.addEventListener('click', () => {
+                    const playlist = li.dataset.playlist;
+                    if (playlist === 'favorites') loadFavoritesView();
+                    else if (playlist === 'mix') loadMixDiaria();
+                    else if (playlist === 'driving') loadDriving();
+                });
+            });
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = e.target.value.trim();
+                    if (query) performSearch(query);
+                }
+            });
+        }
 
         function escapeHtml(str) {
             return str.replace(/[&<>]/g, function(m) {
@@ -107,7 +290,10 @@
             });
         }
 
-        loadSongs();
+        window.onload = () => {
+            setupEvents();
+            loadHome();
+        };
     </script>
 </body>
 </html>
