@@ -10,8 +10,13 @@ app = FastAPI(title="FamiMusic")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
-if not YOUTUBE_API_KEY:
-    print("⚠️ ADVERTENCIA: No se encontró YOUTUBE_API_KEY en variables de entorno")
+
+# Canciones de respaldo (por si falla la API)
+BACKUP_SONGS = [
+    {"id": "dQw4w9WgXcQ", "title": "Never Gonna Give You Up", "thumb": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"},
+    {"id": "kJQP7kiw5Fk", "title": "Dance Monkey", "thumb": "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg"},
+    {"id": "RgKAFK5djSk", "title": "Levitating", "thumb": "https://img.youtube.com/vi/RgKAFK5djSk/hqdefault.jpg"},
+]
 
 @app.get("/")
 def home():
@@ -20,23 +25,15 @@ def home():
 @app.get("/search/{q}")
 def search(q: str):
     if not YOUTUBE_API_KEY:
-        return JSONResponse(
-            content={"error": "API Key de YouTube no configurada en el servidor"},
-            status_code=500
-        )
+        return JSONResponse(content=BACKUP_SONGS)
     
-    # Codificar query y construir URL (quitamos regionCode para evitar restricciones)
     q_safe = urllib.parse.quote(q)
-    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q={q_safe}&type=video&key={YOUTUBE_API_KEY}"
-    
-    print(f"🔍 Buscando: {q}")
-    print(f"📡 URL: {url.replace(YOUTUBE_API_KEY, '****')}")
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q={q_safe}&type=video&key={YOUTUBE_API_KEY}"
     
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode('utf-8'))
-            
             resultados = []
             for item in data.get('items', []):
                 if item['id'].get('videoId'):
@@ -49,22 +46,9 @@ def search(q: str):
                         "title": item['snippet']['title'],
                         "thumb": thumb
                     })
-            
-            print(f"✅ Encontrados {len(resultados)} resultados")
-            
-            # Si no hay resultados, devolver un array vacío (el frontend usará el fallback)
+            if not resultados:
+                return JSONResponse(content=BACKUP_SONGS)
             return JSONResponse(content=resultados)
-            
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        print(f"❌ Error HTTP {e.code}: {error_body}")
-        return JSONResponse(
-            content={"error": f"Error de YouTube API: {e.code}", "detail": error_body},
-            status_code=500
-        )
     except Exception as e:
-        print(f"❌ Error general: {str(e)}")
-        return JSONResponse(
-            content={"error": "Error interno al buscar", "detail": str(e)},
-            status_code=500
-        )
+        print(f"Error: {e}")
+        return JSONResponse(content=BACKUP_SONGS)
