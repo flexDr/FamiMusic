@@ -9,8 +9,8 @@ app = FastAPI(title="FamiMusic")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ←←← PON AQUÍ TU API KEY ←←←
-YOUTUBE_API_KEY = "AIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w"
+# ================== TU API KEY ==================
+YOUTUBE_API_KEY = "AIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w"   # ← Asegúrate que esté correcta
 
 @app.get("/")
 def home():
@@ -18,9 +18,11 @@ def home():
 
 @app.get("/search/{q}")
 def search(q: str):
-    q_safe = urllib.parse.quote(q)
+    if YOUTUBE_API_KEY == "TU_CLAVE_REAL_AQUI":
+        return JSONResponse({"error": "Falta API Key"}, status_code=400)
     
-    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q={q_safe}&type=video&videoCategoryId=10&key={YOUTUBE_API_KEY}"
+    q_safe = urllib.parse.quote(q)
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q={q_safe}&type=video&videoCategoryId=10&regionCode=DO&key={YOUTUBE_API_KEY}"
     
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -29,22 +31,20 @@ def search(q: str):
             
             resultados = []
             for item in data.get('items', []):
-                video_id = item['id']['videoId']
-                resultados.append({
-                    "id": video_id,
-                    "title": item['snippet']['title'],
-                    "thumb": item['snippet']['thumbnails']['high']['url']
-                })
+                if item['id'].get('videoId'):
+                    vid = item['id']['videoId']
+                    resultados.append({
+                        "id": vid,
+                        "title": item['snippet']['title'],
+                        "thumb": item['snippet']['thumbnails'].get('high', item['snippet']['thumbnails']['medium'])['url']
+                    })
             return JSONResponse(content=resultados)
     except Exception as e:
-        print("Error API YouTube:", e)
-        # Fallback pequeño
-        fallback = [
-            {"id": "G8v8D-80qGk", "title": "El Alfa - La Mama de la Mama", "thumb": "https://img.youtube.com/vi/G8v8D-80qGk/hqdefault.jpg"}
-        ]
-        return JSONResponse(content=fallback)
+        print("Error YouTube:", e)
+        return JSONResponse(content=[])
 
-@app.get("/api/audio/{video_id}")
-def get_audio(video_id: str):
-    # Por ahora usamos iframe (más estable)
-    return JSONResponse({"url": f"https://www.youtube.com/embed/{video_id}?autoplay=1"})
+@app.get("/api/play/{video_id}")
+def play(video_id: str):
+    return JSONResponse({
+        "embed_url": f"https://www.youtube.com/embed/{video_id}?autoplay=1&enablejsapi=1"
+    })
