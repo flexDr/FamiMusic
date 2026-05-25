@@ -5,119 +5,113 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fami Music</title>
     <style>
-        :root {
-            --bg-color: #000000;
-            --text-main: #ffffff;
-            --text-muted: #a1a1a6;
-            --accent: #fa233b; /* Rojo Apple Music */
-            --card-bg: #1c1c1e;
-        }
-        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-main); padding-bottom: 100px; -webkit-font-smoothing: antialiased; }
+        :root { --bg: #000000; --text: #ffffff; --text-muted: #a1a1a6; --accent: #fa233b; }
+        body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding-bottom: 120px; }
         
-        /* Cabecera Profesional */
-        header { padding: 40px 20px 10px; font-size: 28px; font-weight: 700; border-bottom: 1px solid #333; position: sticky; top: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); z-index: 10; }
+        /* Cabecera */
+        header { padding: 40px 20px 15px; font-size: 32px; font-weight: bold; position: sticky; top: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 10; border-bottom: 1px solid #222; }
         
-        /* Secciones y Carruseles */
-        .section-container { margin-top: 25px; }
-        .section-title { font-size: 20px; font-weight: 600; margin: 0 20px 10px; }
-        .carousel { display: flex; overflow-x: auto; padding: 0 20px; gap: 15px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-        .carousel::-webkit-scrollbar { display: none; }
+        /* Carruseles */
+        .seccion { margin-top: 30px; }
+        .titulo-seccion { font-size: 22px; font-weight: 600; margin: 0 20px 15px; }
+        .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 16px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+        .carrusel::-webkit-scrollbar { display: none; }
         
-        .card { width: 140px; flex-shrink: 0; scroll-snap-align: start; }
-        .card img { width: 100%; height: 140px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .card-title { font-size: 14px; font-weight: 500; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tarjeta { width: 150px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; }
+        .tarjeta img { width: 100%; height: 150px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+        .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artista-tarjeta { font-size: 13px; color: var(--text-muted); }
 
-        /* Reproductor Apple Music Style (Oculto al inicio, sube al darle play) */
-        #player-ui { position: fixed; bottom: 0; left: 0; width: 100%; height: 100vh; background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(30px); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; padding: 40px 20px; display: flex; flex-direction: column; }
-        #player-ui.active { transform: translateY(0); }
-        
-        .close-btn { align-self: center; width: 40px; height: 5px; background: #555; border-radius: 10px; margin-bottom: 30px; cursor: pointer; }
-        
-        /* Soporte Mixto: Imagen o Video */
-        .media-container { width: 100%; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; }
-        .media-container img, .media-container video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        .media-container img.active, .media-container video.active { display: block; }
+        .mensaje-carga { padding: 0 20px; color: var(--text-muted); font-size: 15px; }
 
-        .info-controls { text-align: left; margin-bottom: 20px; }
-        .track-name { font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .artist-name { font-size: 18px; color: var(--accent); }
+        /* Reproductor Premium (Oculto hasta que le das Play) */
+        #reproductor-ui { position: fixed; bottom: 0; left: 0; width: 100%; height: 100vh; background: rgba(28,28,30,0.95); backdrop-filter: blur(40px); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 100; padding: 40px 20px; display: flex; flex-direction: column; }
+        #reproductor-ui.activo { transform: translateY(0); }
         
-        /* Barra de progreso */
-        .progress-area { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
-        input[type="range"] { width: 100%; margin: 10px 0; accent-color: var(--text-main); }
+        .btn-cerrar { align-self: center; width: 40px; height: 5px; background: #666; border-radius: 10px; margin-bottom: 30px; cursor: pointer; }
         
-        /* Botones principales */
-        .main-controls { display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 20px; }
-        .btn-circle { width: 60px; height: 60px; border-radius: 50%; background: var(--text-main); color: #000; border: none; font-size: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .btn-icon { background: none; border: none; color: var(--text-main); font-size: 28px; cursor: pointer; }
+        /* Contenedor Mixto (Foto o Video) */
+        .media-box { width: 100%; aspect-ratio: 1/1; border-radius: 18px; overflow: hidden; background: #111; box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 30px; position: relative; }
+        .media-box img, .media-box video { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .media-box img.activo, .media-box video.activo { display: block; }
+
+        .info-pista { margin-bottom: 25px; }
+        .nombre-pista { font-size: 26px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nombre-artista { font-size: 20px; color: var(--accent); opacity: 0.9; }
         
-        /* Toggle de Video */
-        .video-toggle { margin-top: 30px; text-align: center; }
-        .video-toggle button { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
-        .video-toggle button.on { background: var(--accent); }
+        /* Controles y Barra */
+        .tiempos { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        input[type="range"] { width: 100%; margin: 12px 0 25px; accent-color: #fff; }
+        
+        .controles-main { display: flex; justify-content: center; align-items: center; gap: 40px; }
+        .btn-icono { background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+        .btn-play { width: 70px; height: 70px; border-radius: 50%; background: #fff; color: #000; border: none; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
+        /* Toggle Video */
+        .switch-video { margin-top: auto; padding-bottom: 20px; text-align: center; }
+        .switch-video button { background: #333; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+        .switch-video button.encendido { background: var(--accent); }
     </style>
 </head>
 <body>
 
-    <header>Explorar</header>
+    <header>Inicio</header>
 
-    <div class="section-container">
-        <div class="section-title">Sugerencias destacadas para ti</div>
-        <div class="carousel" id="sec-destacadas"></div>
+    <div class="seccion">
+        <div class="titulo-seccion">Sugerencias destacadas para ti</div>
+        <div class="carrusel" id="fila-destacadas"></div>
     </div>
 
-    <div class="section-container">
-        <div class="section-title">Escuchado recientemente</div>
-        <div class="carousel" id="sec-recientes"></div>
+    <div class="seccion">
+        <div class="titulo-seccion">Escuchado recientemente</div>
+        <div class="carrusel" id="fila-recientes"></div>
     </div>
 
-    <div class="section-container">
-        <div class="section-title">Recomendado para ti</div>
-        <div class="carousel" id="sec-recomendado"></div>
+    <div class="seccion">
+        <div class="titulo-seccion">Recomendado para ti</div>
+        <div class="carrusel" id="fila-recomendado"></div>
     </div>
 
-    <div class="section-container">
-        <div class="section-title">Dembow</div>
-        <div class="carousel" id="sec-dembow"></div>
+    <div class="seccion">
+        <div class="titulo-seccion">Puro Dembow</div>
+        <div class="carrusel" id="fila-dembow"></div>
     </div>
 
-    <div class="section-container">
-        <div class="section-title">Bachata</div>
-        <div class="carousel" id="sec-bachata"></div>
+    <div class="seccion">
+        <div class="titulo-seccion">Bachata Dominicana</div>
+        <div class="carrusel" id="fila-bachata"></div>
     </div>
 
-    <div id="player-ui">
-        <div class="close-btn" onclick="cerrarReproductor()"></div>
+    <div id="reproductor-ui">
+        <div class="btn-cerrar" onclick="cerrarReproductor()"></div>
         
-        <div class="media-container">
-            <img id="player-img" class="active" src="" alt="Portada">
-            <video id="player-video" playsinline></video>
+        <div class="media-box">
+            <img id="arte-cancion" class="activo" src="" alt="Arte">
+            <video id="video-cancion" playsinline></video>
         </div>
 
-        <div class="info-controls">
-            <div class="track-name" id="player-title">Cargando...</div>
-            <div class="artist-name" id="player-artist">Fami Music</div>
+        <div class="info-pista">
+            <div class="nombre-pista" id="titulo-actual">Cargando...</div>
+            <div class="nombre-artista">Fami Music</div>
         </div>
 
-        <div class="progress-area">
-            <span id="time-current">0:00</span>
-            <span id="time-total">-0:00</span>
+        <div class="tiempos">
+            <span id="tiempo-actual">0:00</span>
+            <span id="tiempo-restante">-0:00</span>
         </div>
-        <input type="range" id="progress-bar" value="0" min="0" max="100">
+        <input type="range" id="barra-progreso" value="0" min="0" max="100">
 
-        <div class="main-controls">
-            <button class="btn-icon" onclick="cancionAnterior()">⏮</button>
-            <button class="btn-circle" id="btn-play-pause" onclick="togglePlay()">⏸</button>
-            <button class="btn-icon" onclick="cancionSiguiente()">⏭</button>
+        <div class="controles-main">
+            <button class="btn-icono" onclick="pistaAnterior()">⏮</button>
+            <button class="btn-play" id="btn-play" onclick="alternarPlay()">⏸</button>
+            <button class="btn-icono" onclick="pistaSiguiente()">⏭</button>
         </div>
 
-        <div class="video-toggle">
-            <button id="btn-video" onclick="alternarVideo()">Activar Video</button>
+        <div class="switch-video">
+            <button id="btn-toggle-video" onclick="alternarModoVideo()">Modo Video: OFF</button>
         </div>
         
-        <audio id="main-audio"></audio>
+        <audio id="audio-cancion"></audio>
     </div>
 
     <script src="app.js"></script>
