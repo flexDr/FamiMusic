@@ -17,6 +17,13 @@ const iconPause = `<svg viewBox="0 0 24 24" width="32" height="32" fill="current
 const iconMiniPlay = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const iconMiniPause = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
+// === LIMPIEZA DE TEXTO (Para arreglar el &quot;) ===
+function decodificarTexto(html) {
+    let txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+}
+
 function onYouTubeIframeAPIReady() {
     reproductorYT = new YT.Player('yt-video-container', {
         height: '100%', width: '100%', videoId: '',
@@ -45,12 +52,12 @@ window.onload = () => {
     cargarFila("dembow dominicano hits", "fila-dembow", false);
 };
 
-// Tarjeta Cuadrada (Para Carruseles de Inicio)
 function crearHTMLTarjeta(cancion, index, listaJson) {
-    let titulo = cancion.title;
+    let tituloRaw = decodificarTexto(cancion.title);
+    let titulo = tituloRaw;
     let artista = "Fami Music";
-    if (cancion.title.includes("-")) {
-        let partes = cancion.title.split("-");
+    if (tituloRaw.includes("-")) {
+        let partes = tituloRaw.split("-");
         artista = partes[0].trim();
         titulo = partes.slice(1).join("-").trim();
     }
@@ -63,21 +70,21 @@ function crearHTMLTarjeta(cancion, index, listaJson) {
     `;
 }
 
-// Lista Alargada (Para Búsqueda y Biblioteca)
 function crearHTMLLista(cancion, index, listaJson) {
-    let titulo = cancion.title;
+    let tituloRaw = decodificarTexto(cancion.title);
+    let titulo = tituloRaw;
     let artista = "Fami Music";
-    if (cancion.title.includes("-")) {
-        let partes = cancion.title.split("-");
+    if (tituloRaw.includes("-")) {
+        let partes = tituloRaw.split("-");
         artista = partes[0].trim();
         titulo = partes.slice(1).join("-").trim();
     }
     return `
-        <div class="fila-lista" onclick="iniciarPista(${index}, '${listaJson}')">
+        <div class="tarjeta" onclick="iniciarPista(${index}, '${listaJson}')">
             <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=1c1c1e&color=fff'">
-            <div class="textos-lista">
-                <div class="titulo-lista">${titulo}</div>
-                <div class="artista-lista">${artista}</div>
+            <div class="textos-tarjeta">
+                <div class="titulo-tarjeta">${titulo}</div>
+                <div class="artista-tarjeta">${artista}</div>
             </div>
         </div>
     `;
@@ -101,7 +108,6 @@ document.getElementById('input-buscador').oninput = (e) => {
     if (query.length < 2) return;
     clearTimeout(searchTimeout);
     document.getElementById('grid-buscar').innerHTML = '<div class="mensaje-carga">Buscando...</div>';
-    // Le decimos "true" para que use el estilo de Lista bonita
     searchTimeout = setTimeout(() => { cargarFila(query, 'grid-buscar', true); }, 800);
 };
 
@@ -133,7 +139,7 @@ function guardarEnHistorial(cancion) {
 function anunciarDJ(cancion) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel(); 
-    let msg = new SpeechSynthesisUtterance(`¡Aquí viene ${cancion}!`);
+    let msg = new SpeechSynthesisUtterance(`¡Activo! Poniendo ${cancion}`);
     msg.lang = 'es-US'; msg.rate = 1.15; msg.pitch = 1.1; 
     window.speechSynthesis.speak(msg);
 }
@@ -144,10 +150,11 @@ function iniciarPista(indice, listaString) {
     indiceActual = indice;
     const pista = playlistActual[indiceActual];
 
+    let tituloRaw = decodificarTexto(pista.title);
     let artista = "Fami Music";
-    let titulo = pista.title;
-    if (titulo.includes("-")) {
-        let partes = titulo.split("-");
+    let titulo = tituloRaw;
+    if (tituloRaw.includes("-")) {
+        let partes = tituloRaw.split("-");
         artista = partes[0].trim();
         titulo = partes.slice(1).join("-").trim();
     }
@@ -158,8 +165,6 @@ function iniciarPista(indice, listaString) {
     
     document.getElementById('mini-title').innerText = titulo;
     document.getElementById('mini-img').src = pista.thumb;
-    
-    // Hace visible el mini reproductor DE POR VIDA una vez que tocas una canción
     miniPlayer.style.display = 'flex'; 
 
     guardarEnHistorial(pista);
@@ -172,8 +177,15 @@ function iniciarPista(indice, listaString) {
     progresoIntervalo = setInterval(actualizarBarra, 500);
 }
 
-function abrirReproductor() { uiRep.classList.add('activo'); }
-function cerrarReproductor() { uiRep.classList.remove('activo'); }
+// === BLOQUEO DE PANTALLA AL ABRIR REPRODUCTOR ===
+function abrirReproductor() { 
+    uiRep.classList.add('activo'); 
+    document.body.classList.add('bloqueado'); // Congela la pantalla
+}
+function cerrarReproductor() { 
+    uiRep.classList.remove('activo'); 
+    document.body.classList.remove('bloqueado'); // Descongela la pantalla
+}
 
 function alternarPlay() {
     if (!reproductorYT) return;
