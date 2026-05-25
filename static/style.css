@@ -15,10 +15,8 @@ body {
 .app {
     display: flex;
     height: 100%;
-    backdrop-filter: blur(2px);
 }
 
-/* Sidebar estilo Apple Music */
 .sidebar {
     width: 280px;
     background: rgba(18, 18, 28, 0.9);
@@ -105,7 +103,6 @@ body {
     color: #ff6a88;
 }
 
-/* Main content */
 .main-content {
     flex: 1;
     overflow-y: auto;
@@ -136,12 +133,6 @@ body {
 .section-header h2 {
     font-size: 1.6rem;
     font-weight: 600;
-}
-
-.see-all {
-    color: #ff6a88;
-    text-decoration: none;
-    font-size: 0.9rem;
 }
 
 .cards-grid {
@@ -218,7 +209,6 @@ body {
     margin-top: 4px;
 }
 
-/* Player bar flotante estilo Apple Music */
 .player-bar {
     position: fixed;
     bottom: 0;
@@ -275,12 +265,7 @@ body {
     padding: 40px;
 }
 
-/* Responsive */
 @media (max-width: 800px) {
-    .sidebar {
-        width: 240px;
-    }
-    .cards-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    }
+    .sidebar { width: 240px; }
+    .cards-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
