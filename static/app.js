@@ -37,6 +37,38 @@ function anunciarDJ(cancion, artista, esMezcla) {
 const svgPlay = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const svgPause = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
+// === EL NUEVO CEREBRO (BUSCADOR DIRECTO DESDE TU MAC/IPHONE) ===
+async function buscarEnRedGlobal(query) {
+    const nodos = [
+        "https://invidious.jing.rocks",
+        "https://inv.tux.pizza",
+        "https://invidious.nerdvpn.de",
+        "https://inv.nadeko.net"
+    ];
+    nodos.sort(() => Math.random() - 0.5); // Aleatorio para no saturar
+
+    for (let nodo of nodos) {
+        try {
+            const res = await fetch(`${nodo}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+            if (!res.ok) continue;
+            const data = await res.json();
+            let resultados = [];
+            for (let item of data) {
+                if (item.videoId) {
+                    resultados.push({
+                        id: item.videoId,
+                        title: item.title,
+                        thumb: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg` // Imagen HD directa que Safari sí acepta
+                    });
+                }
+                if (resultados.length >= 15) break;
+            }
+            if (resultados.length > 0) return resultados;
+        } catch (e) { console.log("Fallo nodo, intentando el siguiente..."); }
+    }
+    return [];
+}
+
 function toggleVideoMode(e) {
     if(e) e.stopPropagation();
     isVideoMode = !isVideoMode;
@@ -72,11 +104,11 @@ function guardarHistorial(titulo) {
 function obtenerQueryInteligente() {
     let historial = JSON.parse(localStorage.getItem('Fami_Cerebro')) || [];
     if (historial.length > 0) return historial[Math.floor(Math.random() * historial.length)] + " exitos mix oficial";
-    const defaults = ["Dembow Dominicano", "Trap Latino Mix", "Anuel AA exitos"];
+    const defaults = ["Dembow Dominicano hits", "Trap Latino Mix", "Anuel AA exitos"];
     return defaults[Math.floor(Math.random() * defaults.length)];
 }
 
-const poolDembow = ["Dembow Dominicano", "El Alfa Mix Oficial", "Rochy RD Dembow"];
+const poolDembow = ["Dembow Dominicano hits", "El Alfa Mix Oficial", "Rochy RD Dembow", "Tokischa Mix"];
 const poolTrap = ["Trap Latino Mix", "Anuel AA Trap", "Eladio Carrion Mix"];
 
 window.onload = async () => {
@@ -84,6 +116,16 @@ window.onload = async () => {
     cargarCarrusel(poolDembow[Math.floor(Math.random() * poolDembow.length)], "carousel2", "dembow");
     cargarCarrusel(poolTrap[Math.floor(Math.random() * poolTrap.length)], "carousel3", "trap");
     cargarBiblioteca(); 
+    
+    // Hacemos que toda el área del reproductor sea clicable para maximizar
+    const player = document.getElementById('player');
+    if(player) {
+        player.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                toggleFullScreen();
+            }
+        });
+    }
 };
 
 function switchTab(tabId, btnElement) {
@@ -119,7 +161,10 @@ function crearHTMLTarjeta(s, actionStr) {
         artist = parts[0].trim();
         title = parts.slice(1).join("-").trim();
     }
-    return `<div class="card" onclick="${actionStr}"><img src="${s.thumb}" onerror="this.style.display='none'"><div class="card-title">${title}</div><div class="card-subtitle">${artist}</div></div>`;
+    return `<div class="card" onclick="${actionStr}">
+        <img src="${s.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=2a2a2a&color=fff'">
+        <div class="card-title">${title}</div><div class="card-subtitle">${artist}</div>
+    </div>`;
 }
 
 function cargarBiblioteca() {
@@ -145,13 +190,16 @@ function eliminarDeBiblioteca(e, id) {
 }
 
 async function cargarCarrusel(query, containerId, memoriaKey) {
+    const container = document.getElementById(containerId);
     try {
-        const res = await fetch("/search/" + encodeURIComponent(query));
-        const data = await res.json();
-        memoriasInicio[memoriaKey] = data; 
-        const container = document.getElementById(containerId);
-        container.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playDesdeCarrusel('${memoriaKey}', ${index})`)).join('');
-    } catch (e) {}
+        const data = await buscarEnRedGlobal(query);
+        if (data.length > 0) {
+            memoriasInicio[memoriaKey] = data; 
+            container.innerHTML = data.map((s, index) => crearHTMLTarjeta(s, `playDesdeCarrusel('${memoriaKey}', ${index})`)).join('');
+        }
+    } catch (e) {
+        container.innerHTML = `<p style="padding:20px; color:#fa233b;">Error de conexión. Intenta recargar.</p>`;
+    }
 }
 
 function playDesdeCarrusel(memoriaKey, index) { playlist = memoriasInicio[memoriaKey]; playIndex(index); }
@@ -168,8 +216,7 @@ document.getElementById('searchBar').oninput = (e) => {
     searchTimeout = setTimeout(async () => {
         searchView.innerHTML = "<p style='padding: 20px; color: #fa233b;'>Buscando opciones...</p>";
         try {
-            const res = await fetch("/search/" + encodeURIComponent(query));
-            const data = await res.json();
+            const data = await buscarEnRedGlobal(query);
             playlist = data; 
             if(data.length === 0) {
                 searchView.innerHTML = "<p style='padding: 20px; color: #888;'>No se encontraron resultados.</p>";
@@ -189,15 +236,26 @@ async function nextSong(e = null, isCrossfade = false) {
         let artist = lastSong.title.includes("-") ? lastSong.title.split("-")[0].trim() : lastSong.title;
         try {
             if(!isCrossfade) document.getElementById('trackName').innerText = "🤖 Buscando...";
-            const res = await fetch("/search/" + encodeURIComponent(artist + " mix"));
-            const data = await res.json();
-            playlist = playlist.concat(data);
-            playIndex(currentIndex + 1, false, isCrossfade);
+            const data = await buscarEnRedGlobal(artist + " mix oficial");
+            if(data.length > 0) {
+                playlist = playlist.concat(data);
+                playIndex(currentIndex + 1, false, isCrossfade);
+            }
         } catch(err) { playIndex(0, false, false); }
     } else { playIndex(0, false, false); }
 }
 
 function prevSong(e) { if(e) e.stopPropagation(); if (currentIndex > 0) playIndex(currentIndex - 1, false, false); }
+
+function toggleFullScreen(e) {
+    if(e) e.stopPropagation();
+    const player = document.getElementById('player');
+    const nav = document.getElementById('appNav');
+    if(player && player.classList.contains('active')) {
+        player.classList.toggle('fullscreen');
+        if (nav) nav.style.transform = player.classList.contains('fullscreen') ? 'translateY(100%)' : 'translateY(0)'; 
+    }
+}
 
 function formatoTiempo(segundos) {
     if (!segundos || isNaN(segundos)) return "0:00";
@@ -231,7 +289,15 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     guardarHistorial(song.title);
     
     let trackStr = song.title.includes("-") ? song.title.split("-").slice(1).join("-").trim() : song.title;
-    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "YouTube";
+    let artistStr = song.title.includes("-") ? song.title.split("-")[0].trim() : "Fami Music";
+
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: trackStr, artist: artistStr, artwork: [{ src: song.thumb, sizes: '512x512', type: 'image/jpeg' }] });
+        navigator.mediaSession.setActionHandler('play', () => { getAudio().play(); actualizarBotonesPlay(svgPause); });
+        navigator.mediaSession.setActionHandler('pause', () => { document.getElementById('audio1').pause(); document.getElementById('audio2').pause(); actualizarBotonesPlay(svgPlay); });
+        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
+        navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
+    }
 
     document.getElementById('trackName').innerText = isCrossfade ? "Mezclando..." : trackStr;
     document.getElementById('artistName').innerText = artistStr;
@@ -246,13 +312,27 @@ function playIndex(index, preserveTime = false, isCrossfade = false) {
     }
     
     actualizarBotonesPlay(svgPause);
+    
+    // Forzamos al reproductor a levantarse para que lo veas claro
     player.classList.add('active');
+    setTimeout(() => {
+        if(!player.classList.contains('fullscreen')) {
+            player.classList.add('fullscreen');
+            const nav = document.getElementById('appNav');
+            if (nav) nav.style.transform = 'translateY(100%)';
+        }
+    }, 150);
 
-    // Asignación ultra rápida sin esperas (Esto arregla el freeze de Safari)
+    // === REPRODUCCIÓN DIRECTA DESDE LA MAC/IPHONE (Adiós Render) ===
+    const nodos_inv = ["https://invidious.jing.rocks", "https://inv.tux.pizza", "https://invidious.nerdvpn.de", "https://inv.nadeko.net"];
+    const nodoSeleccionado = nodos_inv[Math.floor(Math.random() * nodos_inv.length)];
+    
     if (isVideoMode) {
-        audio.src = "/api/video/" + song.id;
+        oldAudio.classList.remove('show-video');
+        audio.classList.add('show-video');
+        audio.src = `${nodoSeleccionado}/latest_version?id=${song.id}&itag=18&local=true`;
     } else {
-        audio.src = "/api/audio/" + song.id;
+        audio.src = `${nodoSeleccionado}/latest_version?id=${song.id}&itag=140&local=true`;
         if (!preserveTime) anunciarDJ(trackStr, artistStr, isCrossfade);
     }
 
