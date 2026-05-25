@@ -11,6 +11,7 @@
         
         body.bloqueado { overflow: hidden; touch-action: none; }
 
+        /* Aurora Background */
         .aurora-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; background: #000; }
         .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.5; animation: auroraAnim 15s infinite alternate ease-in-out; }
         .blob1 { width: 350px; height: 350px; background: #fa233b; top: -10%; left: -10%; }
@@ -30,20 +31,37 @@
 
         .seccion { margin-top: 35px; }
         .titulo-seccion { font-size: 20px; font-weight: 700; margin: 0 20px 15px; border-bottom: 0.5px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        
+        /* Carrusel Base */
         .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 15px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
         .carrusel::-webkit-scrollbar { display: none; }
         
-        .carrusel .tarjeta { width: 140px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .carrusel .tarjeta img { width: 140px; height: 140px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+        /* 1. Tarjeta Normal */
+        .tarjeta-normal { width: 145px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
+        .tarjeta-normal img { width: 145px; height: 145px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
         
+        /* 2. Tarjeta Destacada (Estilo "Chill" Gigante) */
+        .tarjeta-destacada { width: 280px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
+        .tarjeta-destacada img { width: 280px; height: 320px; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        
+        /* 3. Tarjeta Estación/Mix (Fondo de color y círculo) */
+        .tarjeta-mix { width: 155px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
+        .mix-fondo { width: 155px; height: 155px; border-radius: 12px; display: flex; justify-content: center; align-items: center; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+        .mix-fondo img { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+
+        /* Textos de tarjetas */
+        .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+        .artista-tarjeta { font-size: 13px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artista-destacado { font-size: 13px; color: var(--text-muted); margin-top: 10px; }
+
+        /* Listas Búsqueda */
         .lista-resultados { display: flex; flex-direction: column; padding: 0 20px; }
-        .lista-resultados .tarjeta { width: 100%; display: flex; flex-direction: row; align-items: center; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.08); cursor: pointer; }
-        .lista-resultados .tarjeta img { width: 55px; height: 55px; border-radius: 8px; margin-right: 15px; object-fit: cover; }
-        .textos-tarjeta { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-        .titulo-tarjeta { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-        .artista-tarjeta { font-size: 14px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fila-lista { width: 100%; display: flex; flex-direction: row; align-items: center; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.08); cursor: pointer; }
+        .fila-lista img { width: 55px; height: 55px; border-radius: 8px; margin-right: 15px; object-fit: cover; }
+        .textos-lista { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
         .mensaje-carga { padding: 20px; color: var(--text-muted); font-size: 15px; text-align: center; }
 
+        /* === MINI REPRODUCTOR === */
         #mini-player { display: none; position: fixed; bottom: 95px; left: 15px; right: 15px; height: 64px; border-radius: 16px; align-items: center; padding: 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 90; cursor: pointer; border: 0.5px solid rgba(255,255,255,0.15); 
             background: rgba(30, 30, 32, 0.7); 
             backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
@@ -53,6 +71,7 @@
         .mini-titulo { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mini-btn { background: none; border: none; color: #fff; display: flex; justify-content: center; align-items: center; cursor: pointer; padding: 5px; }
 
+        /* === REPRODUCTOR FULL SCREEN === */
         #reproductor-ui { 
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background: rgba(0,0,0,0.85); 
@@ -112,16 +131,19 @@
 
     <div id="vista-inicio" class="vista activa">
         <header>Escuchar</header>
+        
         <div class="seccion">
-            <div class="titulo-seccion">Sugerencias destacadas</div>
+            <div class="titulo-seccion">Sugerencias destacadas para ti</div>
             <div class="carrusel" id="fila-destacadas"></div>
         </div>
+        
         <div class="seccion">
             <div class="titulo-seccion">Escuchado recientemente</div>
             <div class="carrusel" id="fila-recientes"></div>
         </div>
+        
         <div class="seccion">
-            <div class="titulo-seccion">Puro Dembow</div>
+            <div class="titulo-seccion">Puro Dembow & Trap</div>
             <div class="carrusel" id="fila-dembow"></div>
         </div>
     </div>
@@ -129,7 +151,7 @@
     <div id="vista-buscar" class="vista">
         <header>Buscar</header>
         <div class="search-box">
-            <input type="text" id="input-buscador" placeholder="Artistas, canciones o mixes...">
+            <input type="text" id="input-buscador" placeholder="Artistas, canciones o álbumes...">
         </div>
         <div class="lista-resultados" id="grid-buscar"><div class="mensaje-carga">Busca tus temas favoritos.</div></div>
     </div>
@@ -187,7 +209,7 @@
         let modoVideoActivo = false;
         let reproductorYT = null;
         let progresoIntervalo = null;
-        let memoriasInicio = {}; // RAM Segura
+        let memoriasInicio = {}; 
 
         const elArte = document.getElementById('arte-cancion');
         const uiRep = document.getElementById('reproductor-ui');
@@ -201,6 +223,14 @@
         const iconPause = `<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
         const iconMiniPlay = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
         const iconMiniPause = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+
+        // Colores Apple Music para los Mixes
+        const gradientesApple = [
+            "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)", 
+            "linear-gradient(135deg, #ff0844 0%, #ffb199 100%)", 
+            "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", 
+            "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+        ];
 
         function onYouTubeIframeAPIReady() {
             reproductorYT = new YT.Player('yt-video-container', {
@@ -224,10 +254,11 @@
             if(idVista === 'biblioteca') cargarBiblioteca();
         }
 
+        // Ya NO buscamos "mix" genéricos, buscamos hits limpios
         window.onload = () => {
-            cargarFila("mix exitos globales", "fila-destacadas", false);
+            cargarFila("bad bunny exitos", "fila-destacadas", "destacada");
             cargarHistorial();
-            cargarFila("dembow dominicano hits", "fila-dembow", false);
+            cargarFila("el alfa dembow oficial", "fila-dembow", "normal");
         };
 
         function decodificarHTML(html) {
@@ -236,55 +267,77 @@
             return txt.value.replace(/['"]/g, '').trim(); 
         }
 
-        function crearHTMLTarjeta(cancion, index, idContenedor) {
-            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Mix";
+        // Función Maestra que dibuja el diseño que pides según la fila
+        function crearTarjeta(cancion, index, idContenedor, tipo) {
+            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Desconocido";
             let artista = "Fami Music";
             let titulo = tituloRaw;
+            
             if (tituloRaw.includes("-")) {
                 let partes = tituloRaw.split("-");
                 artista = partes[0].trim();
                 titulo = partes.slice(1).join("-").trim();
             }
-            return `
-                <div class="tarjeta" onclick="iniciarPista(${index}, '${idContenedor}')">
-                    <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=1c1c1e&color=fff'">
-                    <div class="titulo-tarjeta">${titulo}</div>
-                    <div class="artista-tarjeta">${artista}</div>
-                </div>
-            `;
-        }
 
-        function crearHTMLLista(cancion, index, idContenedor) {
-            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Mix";
-            let artista = "Fami Music";
-            let titulo = tituloRaw;
-            if (tituloRaw.includes("-")) {
-                let partes = tituloRaw.split("-");
-                artista = partes[0].trim();
-                titulo = partes.slice(1).join("-").trim();
-            }
-            return `
-                <div class="tarjeta" onclick="iniciarPista(${index}, '${idContenedor}')">
-                    <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Mix&background=1c1c1e&color=fff'">
-                    <div class="textos-tarjeta">
+            // Diseño 1: Gigantes (Destacadas)
+            if (tipo === 'destacada') {
+                return `
+                    <div class="tarjeta-destacada" onclick="iniciarPista(${index}, '${idContenedor}')">
+                        <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Fami&background=1c1c1e&color=fff'">
+                        <div class="artista-destacado">NUEVOS LANZAMIENTOS</div>
                         <div class="titulo-tarjeta">${titulo}</div>
                         <div class="artista-tarjeta">${artista}</div>
                     </div>
-                </div>
-            `;
+                `;
+            } 
+            // Diseño 2: Cuadrados de colores y foto redonda (Mix/Estaciones)
+            else if (tipo === 'mix') {
+                let grad = gradientesApple[index % gradientesApple.length];
+                return `
+                    <div class="tarjeta-mix" onclick="iniciarPista(${index}, '${idContenedor}')">
+                        <div class="mix-fondo" style="background: ${grad};">
+                            <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=000&color=fff'">
+                        </div>
+                        <div class="titulo-tarjeta">${artista} y artistas similares</div>
+                        <div class="artista-tarjeta">Estación de radio</div>
+                    </div>
+                `;
+            }
+            // Diseño 3: Lista para la Búsqueda
+            else if (tipo === 'lista') {
+                return `
+                    <div class="fila-lista" onclick="iniciarPista(${index}, '${idContenedor}')">
+                        <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'">
+                        <div class="textos-lista">
+                            <div class="titulo-tarjeta">${titulo}</div>
+                            <div class="artista-tarjeta">${artista}</div>
+                        </div>
+                    </div>
+                `;
+            } 
+            // Diseño 4: Cuadrado Normal
+            else {
+                return `
+                    <div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')">
+                        <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Fami&background=1c1c1e&color=fff'">
+                        <div class="titulo-tarjeta">${titulo}</div>
+                        <div class="artista-tarjeta">${artista}</div>
+                    </div>
+                `;
+            }
         }
 
-        async function cargarFila(busqueda, idContenedor, esLista = false) {
+        async function cargarFila(busqueda, idContenedor, tipoUi) {
             const contenedor = document.getElementById(idContenedor);
-            contenedor.innerHTML = '<div class="mensaje-carga">Buscando temas...</div>';
+            contenedor.innerHTML = '<div class="mensaje-carga">Buscando...</div>';
             try {
                 const res = await fetch(`/search/${encodeURIComponent(busqueda)}`);
                 const datos = await res.json();
                 if (!datos || datos.length === 0) throw new Error("Vacío");
                 
                 memoriasInicio[idContenedor] = datos;
-                contenedor.innerHTML = datos.map((c, i) => esLista ? crearHTMLLista(c, i, idContenedor) : crearHTMLTarjeta(c, i, idContenedor)).join('');
-            } catch (e) { contenedor.innerHTML = '<div class="mensaje-carga">Error al conectar.</div>'; }
+                contenedor.innerHTML = datos.map((c, i) => crearTarjeta(c, i, idContenedor, tipoUi)).join('');
+            } catch (e) { contenedor.innerHTML = '<div class="mensaje-carga">No se pudo conectar.</div>'; }
         }
 
         let searchTimeout = null;
@@ -293,23 +346,26 @@
             if (query.length < 2) return;
             clearTimeout(searchTimeout);
             document.getElementById('grid-buscar').innerHTML = '<div class="mensaje-carga">Buscando...</div>';
-            searchTimeout = setTimeout(() => { cargarFila(query, 'grid-buscar', true); }, 800);
+            searchTimeout = setTimeout(() => { cargarFila(query, 'grid-buscar', 'lista'); }, 800);
         };
 
         function cargarHistorial() {
             let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('fila-recientes');
-            if(historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Aún no hay música escuchada.</div>'; return; }
+            if(historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Aún no has escuchado nada.</div>'; return; }
+            
             memoriasInicio['fila-recientes'] = historial;
-            cont.innerHTML = historial.map((c, i) => crearHTMLTarjeta(c, i, 'fila-recientes')).join('');
+            // El historial ahora sale con el diseño de Estación de Radio (Mix)
+            cont.innerHTML = historial.map((c, i) => crearTarjeta(c, i, 'fila-recientes', 'mix')).join('');
         }
 
         function cargarBiblioteca() {
             let lib = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('grid-biblioteca');
             if(lib.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Tu biblioteca está vacía.</div>'; return; }
+            
             memoriasInicio['grid-biblioteca'] = lib;
-            cont.innerHTML = lib.map((c, i) => crearHTMLLista(c, i, 'grid-biblioteca')).join('');
+            cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
         }
 
         function guardarEnHistorial(cancion) {
@@ -324,7 +380,7 @@
         function anunciarDJ(cancion) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel(); 
-            let msg = new SpeechSynthesisUtterance(`¡Activo! Poniendo ${cancion}`);
+            let msg = new SpeechSynthesisUtterance(`¡Activo! Escuchando ${cancion}`);
             msg.lang = 'es-US'; msg.rate = 1.15; msg.pitch = 1.1; 
             window.speechSynthesis.speak(msg);
         }
