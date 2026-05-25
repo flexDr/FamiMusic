@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 app = FastAPI(title="FamiMusic")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-YOUTUBE_API_KEY = os.getenv("AIzaSyAqJjbwNKW8n15qslhnwhIooZ6T-6LAH4w", "")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 if not YOUTUBE_API_KEY:
     print("⚠️ ADVERTENCIA: No se encontró YOUTUBE_API_KEY en variables de entorno")
 
