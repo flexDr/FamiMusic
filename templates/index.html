@@ -5,50 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fami Music</title>
     <style>
-        /* === DISEÑO PREMIUM APPLE MUSIC === */
         :root { --text: #ffffff; --text-muted: #ebebf599; --accent: #fa233b; --tab-bg: rgba(0, 0, 0, 0.4); }
-        body { margin: 0; padding: 0; color: var(--text); font-family: -apple-system, sans-serif; padding-bottom: 150px; background: #000; -webkit-font-smoothing: antialiased; }
+        body { margin: 0; padding: 0; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; padding-bottom: 150px; background: #000; -webkit-font-smoothing: antialiased; }
         body.bloqueado { overflow: hidden; touch-action: none; }
 
-        /* Fondo Aurora */
         .aurora-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; background: #000; }
         .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.5; animation: auroraAnim 15s infinite alternate ease-in-out; }
         .blob1 { width: 350px; height: 350px; background: #fa233b; top: -10%; left: -10%; }
         .blob2 { width: 450px; height: 450px; background: #5e17eb; bottom: -20%; right: -10%; animation-delay: -5s; }
         @keyframes auroraAnim { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(40px, 40px) scale(1.1); } }
 
-        /* Header Cristal */
         header { padding: 50px 20px 15px; font-size: 34px; font-weight: 800; position: sticky; top: 0; z-index: 10; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); border-bottom: 0.5px solid rgba(255,255,255,0.1); }
         .vista { display: none; }
         .vista.activa { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Secciones y Carruseles */
         .seccion { margin-top: 35px; }
         .titulo-seccion { font-size: 22px; font-weight: 700; margin: 0 20px 15px; padding-bottom: 10px; display: flex; align-items: center; }
         .titulo-seccion::after { content: '›'; margin-left: 8px; color: var(--text-muted); font-size: 24px; font-weight: 400; }
         .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 15px; scroll-snap-type: x mandatory; }
         .carrusel::-webkit-scrollbar { display: none; }
 
-        /* 1. Tarjetas Destacadas Gigantes */
         .tarjeta-destacada { width: 300px; height: 380px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .tarjeta-destacada img { width: 100%; height: 100%; object-fit: cover; }
         .overlay-destacada { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.8) 100%); }
         .textos-destacados { position: absolute; bottom: 20px; left: 15px; right: 15px; }
-        .subtitulo-destacado { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.1; }
+        .subtitulo-destacado { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
+        .desc-destacado { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
 
-        /* 2. Tarjetas Mix (Círculos) */
         .tarjeta-mix { width: 160px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
         .mix-fondo { width: 160px; height: 160px; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
         .circulo-1 { position: absolute; width: 90px; height: 90px; border-radius: 50%; object-fit: cover; top: 15%; left: 10%; box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 2; }
         .circulo-2 { position: absolute; width: 65px; height: 65px; border-radius: 50%; object-fit: cover; bottom: 15%; right: 10%; box-shadow: 0 8px 15px rgba(0,0,0,0.4); z-index: 3; }
         .circulo-3 { position: absolute; width: 45px; height: 45px; border-radius: 50%; object-fit: cover; bottom: 5%; left: 40%; box-shadow: 0 5px 10px rgba(0,0,0,0.3); z-index: 4; }
-
-        /* 3. Tarjeta y Lista Normal */
-        .tarjeta-normal { width: 145px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .tarjeta-normal img { width: 145px; height: 145px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
         .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
         .artista-tarjeta { font-size: 13px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .tarjeta-normal { width: 145px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
+        .tarjeta-normal img { width: 145px; height: 145px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
 
         .lista-resultados { display: flex; flex-direction: column; padding: 0 20px; }
         .fila-lista { width: 100%; display: flex; align-items: center; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.08); cursor: pointer; }
@@ -56,18 +50,16 @@
         .textos-lista { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
         .mensaje-carga { padding: 20px; color: var(--text-muted); font-size: 15px; text-align: center; }
 
-        /* Reproductor Mini */
-        #mini-player { display: none; position: fixed; bottom: 95px; left: 15px; right: 15px; height: 64px; border-radius: 16px; align-items: center; padding: 0 15px; z-index: 90; background: rgba(30, 30, 32, 0.7); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); border: 0.5px solid rgba(255,255,255,0.15); }
+        #mini-player { display: none; position: fixed; bottom: 95px; left: 15px; right: 15px; height: 64px; border-radius: 16px; align-items: center; padding: 0 15px; z-index: 90; background: rgba(30, 30, 32, 0.7); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); border: 0.5px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         #mini-img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; margin-right: 12px; }
         .mini-info { flex: 1; overflow: hidden; }
         .mini-titulo { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-btn { background: none; border: none; color: #fff; cursor: pointer; padding: 5px; }
+        .mini-btn { background: none; border: none; color: #fff; cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; }
 
-        /* Reproductor Pantalla Completa NATIVO */
         #reproductor-ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; padding: 40px 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; overscroll-behavior: none; }
         #reproductor-ui.activo { transform: translateY(0); }
-        .btn-cerrar { width: 40px; height: 5px; background: rgba(255,255,255,0.4); border-radius: 10px; margin-bottom: 30px; cursor: pointer; }
-        .media-box { width: 100%; max-width: 320px; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); margin-bottom: 30px; position: relative; transition: transform 0.3s; }
+        .btn-cerrar { width: 40px; height: 5px; background: rgba(255,255,255,0.4); border-radius: 10px; margin-bottom: 30px; cursor: pointer; flex-shrink:0;}
+        .media-box { width: 100%; max-width: 320px; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); margin-bottom: 30px; position: relative; transition: transform 0.3s; flex-shrink:0;}
         .media-box.pausado { transform: scale(0.85); } 
         #arte-cancion { width: 100%; height: 100%; object-fit: cover; }
         .info-pista { width: 100%; max-width: 320px; margin-bottom: 20px; text-align: left; }
@@ -81,7 +73,6 @@
         .btn-icono { background: none; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
         .btn-play { width: 65px; height: 65px; border-radius: 50%; background: #fff; color: #000; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 
-        /* Menú Inferior */
         .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: var(--tab-bg); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); display: flex; justify-content: space-around; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.1); z-index: 80; padding-bottom: env(safe-area-inset-bottom); }
         .tab { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); cursor: pointer; width: 33%; font-size: 10px; font-weight: 500; }
         .tab svg { width: 26px; height: 26px; margin-bottom: 4px; fill: currentColor; }
@@ -92,54 +83,35 @@
     </style>
 </head>
 <body>
-
     <div class="aurora-bg"><div class="blob blob1"></div><div class="blob blob2"></div></div>
 
     <div id="vista-inicio" class="vista activa">
         <header>Escuchar</header>
-        <div class="seccion">
-            <div class="titulo-seccion">Sugerencias destacadas</div>
-            <div class="carrusel" id="fila-destacadas"></div>
-        </div>
-        <div class="seccion">
-            <div class="titulo-seccion">Escuchado recientemente</div>
-            <div class="carrusel" id="fila-recientes"></div>
-        </div>
-        <div class="seccion">
-            <div class="titulo-seccion">Puro Dembow</div>
-            <div class="carrusel" id="fila-dembow"></div>
-        </div>
+        <div class="seccion"><div class="titulo-seccion">Sugerencias destacadas</div><div class="carrusel" id="fila-destacadas"></div></div>
+        <div class="seccion"><div class="titulo-seccion">Escuchado recientemente</div><div class="carrusel" id="fila-recientes"></div></div>
+        <div class="seccion"><div class="titulo-seccion">Puro Dembow</div><div class="carrusel" id="fila-dembow"></div></div>
     </div>
 
     <div id="vista-buscar" class="vista">
         <header>Buscar</header>
-        <div class="search-box">
-            <input type="text" id="input-buscador" placeholder="Artistas, canciones...">
-        </div>
+        <div class="search-box"><input type="text" id="input-buscador" placeholder="Artistas, canciones..."></div>
         <div class="lista-resultados" id="grid-buscar"><div class="mensaje-carga">Busca tus temas favoritos.</div></div>
     </div>
 
     <div id="vista-biblioteca" class="vista">
         <header>Biblioteca</header>
-        <div class="seccion">
-            <div class="titulo-seccion">Añadidos recientemente</div>
-            <div class="lista-resultados" id="grid-biblioteca"></div>
-        </div>
+        <div class="seccion"><div class="titulo-seccion">Añadidos recientemente</div><div class="lista-resultados" id="grid-biblioteca"></div></div>
     </div>
 
     <div id="mini-player" onclick="abrirReproductor()">
         <img src="" id="mini-img">
         <div class="mini-info"><div class="mini-titulo" id="mini-title">...</div></div>
-        <button class="mini-btn" id="mini-play-btn" onclick="alternarPlayFiltro(event)">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        </button>
+        <button class="mini-btn" id="mini-play-btn" onclick="alternarPlayFiltro(event)"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
     </div>
 
     <div id="reproductor-ui">
         <div class="btn-cerrar" onclick="cerrarReproductor()"></div>
-        <div class="media-box pausado" id="media-box-anim">
-            <img id="arte-cancion" src="" alt="Arte">
-        </div>
+        <div class="media-box pausado" id="media-box-anim"><img id="arte-cancion" src="" alt="Arte"></div>
         <div class="info-pista">
             <div class="nombre-pista" id="titulo-actual">Selecciona un tema</div>
             <div class="nombre-artista" id="artista-actual">Fami Music</div>
@@ -153,7 +125,6 @@
             <button class="btn-play" id="btn-play" onclick="alternarPlay()"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
             <button class="btn-icono" onclick="pistaSiguiente()"><svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         </div>
-        
         <audio id="audio-nativo"></audio>
     </div>
 
@@ -180,13 +151,7 @@
         const iconPause = `<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
         const iconMiniPlay = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
         const iconMiniPause = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
-
-        const gradientesApple = [
-            "linear-gradient(135deg, #4568dc 0%, #b06ab3 100%)", 
-            "linear-gradient(135deg, #13547a 0%, #80d0c7 100%)", 
-            "linear-gradient(135deg, #ff0844 0%, #ffb199 100%)", 
-            "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
-        ];
+        const gradientesApple = ["linear-gradient(135deg, #4568dc 0%, #b06ab3 100%)", "linear-gradient(135deg, #13547a 0%, #80d0c7 100%)", "linear-gradient(135deg, #ff0844 0%, #ffb199 100%)", "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"];
 
         audioEl.addEventListener('play', () => actualizarUIPlay(true));
         audioEl.addEventListener('pause', () => actualizarUIPlay(false));
@@ -208,74 +173,41 @@
         };
 
         function decodificarHTML(html) {
-            var txt = document.createElement("textarea");
+            let txt = document.createElement("textarea");
             txt.innerHTML = html;
             return txt.value.replace(/['"]/g, '').trim(); 
         }
 
         function crearTarjeta(cancion, index, idContenedor, tipo) {
-            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Desconocido";
-            let artista = "Fami Music";
-            let titulo = tituloRaw;
+            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Mix";
+            let artista = "Fami Music"; let titulo = tituloRaw;
             if (tituloRaw.includes("-")) {
                 let partes = tituloRaw.split("-");
-                artista = partes[0].trim();
-                titulo = partes.slice(1).join("-").trim();
+                artista = partes[0].trim(); titulo = partes.slice(1).join("-").trim();
             }
 
             if (tipo === 'destacada') {
-                return `
-                    <div class="tarjeta-destacada" onclick="iniciarPista(${index}, '${idContenedor}')">
-                        <img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Fami&background=1c1c1e&color=fff'">
-                        <div class="overlay-destacada"></div>
-                        <div class="textos-destacados">
-                            <div class="subtitulo-destacado">${titulo}</div>
-                        </div>
-                    </div>
-                `;
+                return `<div class="tarjeta-destacada" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Fami&background=1c1c1e&color=fff'"><div class="overlay-destacada"></div><div class="logo-apple">FamiMusic</div><div class="textos-destacados"><div class="titulo-destacado">HECHOS PARA TI</div><div class="subtitulo-destacado">${titulo}</div><div class="desc-destacado">${artista}, y más artistas similares.</div></div></div>`;
             } else if (tipo === 'mix') {
                 let grad = gradientesApple[index % gradientesApple.length];
-                return `
-                    <div class="tarjeta-mix" onclick="iniciarPista(${index}, '${idContenedor}')">
-                        <div class="mix-fondo" style="background: ${grad};">
-                            <img src="${cancion.thumb}" class="circulo-1">
-                            <img src="${cancion.thumb}" class="circulo-2">
-                            <img src="${cancion.thumb}" class="circulo-3">
-                        </div>
-                        <div class="titulo-tarjeta">${artista}</div>
-                        <div class="artista-tarjeta">Estación</div>
-                    </div>
-                `;
+                return `<div class="tarjeta-mix" onclick="iniciarPista(${index}, '${idContenedor}')"><div class="mix-fondo" style="background: ${grad};"><img src="${cancion.thumb}" class="circulo-1"><img src="${cancion.thumb}" class="circulo-2"><img src="${cancion.thumb}" class="circulo-3"></div><div class="titulo-tarjeta">${artista} y similares</div><div class="artista-tarjeta">Estación de radio</div></div>`;
             } else if (tipo === 'lista') {
-                return `
-                    <div class="fila-lista" onclick="iniciarPista(${index}, '${idContenedor}')">
-                        <img src="${cancion.thumb}">
-                        <div class="textos-lista">
-                            <div class="titulo-tarjeta">${titulo}</div>
-                            <div class="artista-tarjeta">${artista}</div>
-                        </div>
-                    </div>
-                `;
+                return `<div class="fila-lista" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'"><div class="textos-lista"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div></div>`;
             } else {
-                return `
-                    <div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')">
-                        <img src="${cancion.thumb}">
-                        <div class="titulo-tarjeta">${titulo}</div>
-                        <div class="artista-tarjeta">${artista}</div>
-                    </div>
-                `;
+                return `<div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div>`;
             }
         }
 
         async function cargarFila(busqueda, idContenedor, tipoUi) {
             const contenedor = document.getElementById(idContenedor);
+            contenedor.innerHTML = '<div class="mensaje-carga">Buscando...</div>';
             try {
                 const res = await fetch(`/search/${encodeURIComponent(busqueda)}`);
                 const datos = await res.json();
                 if (!datos || datos.length === 0) throw new Error("Vacío");
                 memoriasInicio[idContenedor] = datos;
                 contenedor.innerHTML = datos.map((c, i) => crearTarjeta(c, i, idContenedor, tipoUi)).join('');
-            } catch (e) { contenedor.innerHTML = '<div class="mensaje-carga">Error de red.</div>'; }
+            } catch (e) { contenedor.innerHTML = '<div class="mensaje-carga">Error de conexión.</div>'; }
         }
 
         let searchTimeout = null;
@@ -290,7 +222,7 @@
         function cargarHistorial() {
             let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('fila-recientes');
-            if(historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Nada escuchado aún.</div>'; return; }
+            if(historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Aún no has escuchado nada.</div>'; return; }
             memoriasInicio['fila-recientes'] = historial;
             cont.innerHTML = historial.map((c, i) => crearTarjeta(c, i, 'fila-recientes', 'mix')).join('');
         }
@@ -298,7 +230,7 @@
         function cargarBiblioteca() {
             let lib = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('grid-biblioteca');
-            if(lib.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Biblioteca vacía.</div>'; return; }
+            if(lib.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Tu biblioteca está vacía.</div>'; return; }
             memoriasInicio['grid-biblioteca'] = lib;
             cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
         }
@@ -318,12 +250,10 @@
             const pista = playlistActual[indiceActual];
 
             let tituloRaw = decodificarHTML(pista.title);
-            let artista = "Fami Music";
-            let titulo = tituloRaw;
+            let artista = "Fami Music"; let titulo = tituloRaw;
             if (tituloRaw.includes("-")) {
                 let partes = tituloRaw.split("-");
-                artista = partes[0].trim();
-                titulo = partes.slice(1).join("-").trim();
+                artista = partes[0].trim(); titulo = partes.slice(1).join("-").trim();
             }
 
             document.getElementById('titulo-actual').innerText = "Cargando audio...";
@@ -337,15 +267,16 @@
             abrirReproductor();
 
             try {
-                // LLAMADA AL BACKEND PARA EL AUDIO REAL (Sin iframe de YouTube)
                 const respuesta = await fetch(`/audio/${pista.id}`);
                 const datosAudio = await respuesta.json();
                 
+                if(!datosAudio.url) throw new Error("Audio URL missing");
+
                 document.getElementById('titulo-actual').innerText = titulo;
                 document.getElementById('mini-title').innerText = titulo;
 
                 audioEl.src = datosAudio.url;
-                audioEl.play();
+                audioEl.play().catch(e => console.log("Auto-play prevented", e));
 
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.metadata = new MediaMetadata({
@@ -358,7 +289,7 @@
                     navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
                 }
             } catch (error) {
-                document.getElementById('titulo-actual').innerText = "Error al reproducir";
+                document.getElementById('titulo-actual').innerText = "Error: Audio no disponible";
             }
         }
 
@@ -399,137 +330,6 @@
         }
 
         barra.oninput = (e) => { audioEl.currentTime = e.target.value; };
-    </script>
-</body>
-</html>        .carrusel { display: flex; overflow-x: auto; padding: 0 20px; gap: 15px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-        .carrusel::-webkit-scrollbar { display: none; }
-        
-        /* Tarjetas */
-        .tarjeta-destacada { width: 300px; height: 380px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .tarjeta-destacada img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-        .tarjeta-destacada:active img { transform: scale(1.05); }
-        .overlay-destacada { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.8) 100%); }
-        .logo-apple { position: absolute; top: 15px; right: 15px; font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.9); }
-        .textos-destacados { position: absolute; bottom: 20px; left: 15px; right: 15px; }
-        .titulo-destacado { font-size: 13px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .subtitulo-destacado { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .desc-destacado { font-size: 14px; color: var(--text-muted); margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-        .tarjeta-mix { width: 160px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .mix-fondo { width: 160px; height: 160px; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
-        .circulo-1 { position: absolute; width: 90px; height: 90px; border-radius: 50%; object-fit: cover; top: 15%; left: 10%; box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 2; }
-        .circulo-2 { position: absolute; width: 65px; height: 65px; border-radius: 50%; object-fit: cover; bottom: 15%; right: 10%; box-shadow: 0 8px 15px rgba(0,0,0,0.4); z-index: 3; }
-        .circulo-3 { position: absolute; width: 45px; height: 45px; border-radius: 50%; object-fit: cover; bottom: 5%; left: 40%; box-shadow: 0 5px 10px rgba(0,0,0,0.3); z-index: 4; }
-        .titulo-tarjeta { font-size: 15px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-        .artista-tarjeta { font-size: 13px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .tarjeta-normal { width: 145px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .tarjeta-normal img { width: 145px; height: 145px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
-
-        .lista-resultados { display: flex; flex-direction: column; padding: 0 20px; }
-        .fila-lista { width: 100%; display: flex; flex-direction: row; align-items: center; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.08); cursor: pointer; }
-        .fila-lista img { width: 55px; height: 55px; border-radius: 8px; margin-right: 15px; object-fit: cover; }
-        .textos-lista { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-        .mensaje-carga { padding: 20px; color: var(--text-muted); font-size: 15px; text-align: center; }
-
-        /* === MINI REPRODUCTOR === */
-        #mini-player { display: none; position: fixed; bottom: 95px; left: 15px; right: 15px; height: 64px; border-radius: 16px; align-items: center; padding: 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 90; cursor: pointer; border: 0.5px solid rgba(255,255,255,0.15); 
-            background: rgba(30, 30, 32, 0.7); 
-            backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
-        }
-        #mini-img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; margin-right: 12px; }
-        .mini-info { flex: 1; overflow: hidden; }
-        .mini-titulo { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-btn { background: none; border: none; color: #fff; display: flex; justify-content: center; align-items: center; cursor: pointer; padding: 5px; }
-
-        /* === REPRODUCTOR FULL SCREEN === */
-        #reproductor-ui { 
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-            background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px);
-            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); 
-            z-index: 100; padding: 40px 30px; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            box-sizing: border-box; overscroll-behavior: none; 
-        }
-        #reproductor-ui.activo { transform: translateY(0); }
-        
-        .btn-cerrar { width: 40px; height: 5px; background: rgba(255,255,255,0.4); border-radius: 10px; margin-bottom: 30px; cursor: pointer; flex-shrink: 0; }
-        
-        .media-box { width: 100%; max-width: 320px; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); margin-bottom: 30px; position: relative; transition: transform 0.3s; flex-shrink: 0; }
-        .media-box.pausado { transform: scale(0.85); } 
-        
-        #arte-cancion { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.3s; }
-
-        .info-pista { width: 100%; max-width: 320px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
-        .nombre-pista { font-size: 22px; font-weight: 700; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .nombre-artista { font-size: 18px; color: var(--accent); opacity: 0.9; margin-top: 4px; }
-        
-        .controles-wraper { width: 100%; max-width: 320px; }
-        .tiempos { display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.5); font-weight: 500; }
-        input[type="range"] { width: 100%; margin: 10px 0 25px; appearance: none; background: rgba(255,255,255,0.2); height: 5px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; background: #fff; border-radius: 50%; }
-        
-        .controles-main { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 30px; }
-        .btn-icono { background: none; border: none; color: #fff; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; padding: 0; }
-        .btn-icono:active { opacity: 0.5; }
-        .btn-play { width: 65px; height: 65px; border-radius: 50%; background: #fff; color: #000; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; padding: 0; }
-        .btn-play:active { transform: scale(0.9); }
-
-        .tab-bar { 
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; 
-            background: var(--tab-bg); 
-            backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
-            display: flex; justify-content: space-around; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.1); z-index: 80; padding-bottom: env(safe-area-inset-bottom); 
-        }
-        .tab { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); cursor: pointer; width: 33%; font-size: 10px; font-weight: 500; }
-        .tab svg { width: 26px; height: 26px; margin-bottom: 4px; fill: currentColor; }
-        .tab.activo { color: var(--accent); }
-
-        .search-box { padding: 0 20px 10px; }
-        .search-box input { width: 100%; background: rgba(255,255,255,0.15); border: none; padding: 12px 15px; border-radius: 10px; color: white; font-size: 16px; outline: none; }
-        .search-box input::placeholder { color: rgba(255,255,255,0.5); }
-    </style>
-</head>
-<body>
-
-    <div class="aurora-bg"><div class="blob blob1"></div><div class="blob blob2"></div></div>
-
-    <div id="vista-inicio" class="vista activa">
-        <header>Escuchar</header>
-        <div class="seccion">
-            <div class="titulo-seccion">Sugerencias destacadas</div>
-            <div class="carrusel" id="fila-destacadas"></div>
-        </div>
-        <div class="seccion">
-            <div class="titulo-seccion">Escuchado recientemente</div>
-        async function cargarInicio() {
-            const res = await fetch('/search/Bad Bunny');
-            const data = await res.json();
-            const carrusel = document.getElementById('fila-destacadas');
-            carrusel.innerHTML = data.map(item => `
-                <div class="tarjeta" onclick="reproducir('${item.id}', '${item.title}')">
-                    <img src="${item.thumb}">
-                    <div class="titulo">${item.title}</div>
-                </div>
-            `).join('');
-        }
-
-        async function reproducir(id, title) {
-            document.getElementById('titulo-reproduciendo').innerText = title;
-            const res = await fetch(`/audio/${id}`);
-            const data = await res.json();
-            audio.src = data.url;
-            audio.play();
-            playBtn.innerText = "⏸";
-        }
-
-        function togglePlay() {
-            if(audio.paused) { audio.play(); playBtn.innerText = "⏸"; }
-            else { audio.pause(); playBtn.innerText = "▶"; }
-        }
-
-        cargarInicio();
     </script>
 </body>
 </html>
