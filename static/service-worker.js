@@ -2,12 +2,11 @@
 const CACHE_NAME = 'famimusic-v2';
 
 self.addEventListener('install', event => {
-    self.skipWaiting(); // Activar inmediatamente
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-    clients.claim(); // Tomar control de las pestañas abiertas
-    // Limpiar cachés viejas
+    clients.claim();
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
@@ -17,18 +16,15 @@ self.addEventListener('activate', event => {
     );
 });
 
-// No interceptar el streaming de audio
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-    // Si es una petición a /stream/, no la cacheamos (la dejamos pasar)
+    // No cachear el streaming de audio
     if (url.pathname.startsWith('/stream/')) {
-        return; // No hacer nada, usar la red directamente
+        return; // dejar pasar directamente
     }
-    // Para el resto, estrategia network-first
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                // Cachear solo si la respuesta es válida (no streaming)
                 let responseClone = response.clone();
                 caches.open(CACHE_NAME).then(cache => {
                     cache.put(event.request, responseClone);
