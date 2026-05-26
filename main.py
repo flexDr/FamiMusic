@@ -33,15 +33,15 @@ def search(q: str):
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read().decode('utf-8'))
+            data = json.loads(r.read().decode("utf-8"))
             resultados = []
-            for item in data.get('items', []):
-                if item['id'].get('videoId'):
-                    vid = item['id']['videoId']
+            for item in data.get("items", []):
+                if item["id"].get("videoId"):
+                    vid = item["id"]["videoId"]
                     resultados.append({
                         "id": vid,
-                        "title": item['snippet']['title'],
-                        "thumb": item['snippet']['thumbnails']['high']['url']
+                        "title": item["snippet"]["title"],
+                        "thumb": item["snippet"]["thumbnails"]["high"]["url"]
                     })
             return JSONResponse(content=resultados)
     except Exception as e:
@@ -51,24 +51,24 @@ def search(q: str):
 @app.get("/stream/{video_id}")
 async def stream(video_id: str):
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
-        'noplaylist': True,
-        'extract_flat': False,
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "extract_flat": False,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            audio_url = info['url']
-            title = info.get('title', 'Sin título')
+            audio_url = info["url"]
+            title = info.get("title", "Sin título")
         except Exception as e:
             return JSONResponse({"error": f"No se pudo obtener el audio: {str(e)}"}, status_code=400)
 
     def iter_audio():
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Accept': '*/*',
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "*/*",
         }
         with requests.get(audio_url, stream=True, headers=headers) as r:
             r.raise_for_status()
