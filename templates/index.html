@@ -55,9 +55,8 @@
         #reproductor-ui.activo { transform: translateY(0); }
         .btn-cerrar { width: 40px; height: 5px; background: rgba(255,255,255,0.4); border-radius: 10px; margin-bottom: 30px; cursor: pointer; }
         .media-box { width: 100%; max-width: 320px; aspect-ratio: 1; border-radius: 16px; overflow: hidden; margin-bottom: 30px; position: relative; }
-        #yt-video-container { width: 100%; height: 100%; pointer-events: none; }
-        #arte-cancion { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.3s; }
-        #arte-cancion.oculto { opacity: 0; }
+        #yt-video-container { display: none; }
+        #arte-cancion { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
         .info-pista { width: 100%; max-width: 320px; margin-bottom: 20px; text-align: left; }
         .nombre-pista { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .nombre-artista { font-size: 18px; color: var(--accent); margin-top: 4px; }
@@ -74,11 +73,14 @@
         .tab.activo { color: var(--accent); }
         .search-box { padding: 0 20px 10px; }
         .search-box input { width: 100%; background: rgba(255,255,255,0.15); border: none; padding: 12px 15px; border-radius: 10px; color: white; font-size: 16px; outline: none; }
-        .switch-video button { background: rgba(255,255,255,0.15); color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; max-width: 320px; }
+        .switch-video { display: none; }
     </style>
 </head>
 <body>
     <div class="aurora-bg"><div class="blob blob1"></div><div class="blob blob2"></div></div>
+
+    <!-- Elemento de audio nativo, el verdadero reproductor -->
+    <audio id="audio-nativo" preload="auto" playsinline></audio>
 
     <div id="vista-inicio" class="vista activa">
         <header>Escuchar</header>
@@ -105,7 +107,6 @@
     <div id="reproductor-ui">
         <div class="btn-cerrar" onclick="cerrarReproductor()"></div>
         <div class="media-box pausado" id="media-box-anim">
-            <div id="yt-video-container"></div>
             <img id="arte-cancion" src="">
         </div>
         <div class="info-pista">
@@ -121,9 +122,6 @@
             <button class="btn-play" id="btn-play" onclick="alternarPlay()"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
             <button class="btn-icono" onclick="pistaSiguiente()"><svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         </div>
-        <div class="switch-video">
-            <button id="btn-toggle-video" onclick="alternarModoVideo()">Ver Video Oficial</button>
-        </div>
     </div>
 
     <nav class="tab-bar">
@@ -132,14 +130,12 @@
         <div class="tab" onclick="cambiarTab('biblioteca', this)"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg><span>Biblioteca</span></div>
     </nav>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        // ================== REPRODUCTOR DE AUDIO NATIVO ==================
+        const audio = document.getElementById('audio-nativo');
         let playlistActual = [];
         let indiceActual = 0;
         let memoriasInicio = {};
-        let reproductorYT = null;
-        let modoVideoActivo = false;
-        let progresoIntervalo = null;
 
         const uiRep = document.getElementById('reproductor-ui');
         const btnPlay = document.getElementById('btn-play');
@@ -156,21 +152,48 @@
 
         const gradientesApple = ["linear-gradient(135deg, #4568dc, #b06ab3)", "linear-gradient(135deg, #13547a, #80d0c7)", "linear-gradient(135deg, #ff0844, #ffb199)", "linear-gradient(135deg, #f093fb, #f5576c)"];
 
-        function onYouTubeIframeAPIReady() {
-            reproductorYT = new YT.Player('yt-video-container', {
-                height: '100%', width: '100%', videoId: '',
-                playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'rel': 0, 'modestbranding': 1, 'origin': window.location.origin },
-                events: { 'onStateChange': cambioEstadoReproductor }
+        // Eventos del audio
+        audio.addEventListener('play', () => actualizarUIPlay(true));
+        audio.addEventListener('pause', () => actualizarUIPlay(false));
+        audio.addEventListener('ended', pistaSiguiente);
+        audio.addEventListener('timeupdate', actualizarBarra);
+        audio.addEventListener('loadedmetadata', () => {
+            barra.max = Math.floor(audio.duration) || 100;
+        });
+        audio.addEventListener('error', (e) => {
+            console.error('Error de audio:', e);
+            alert('No se pudo reproducir esta canción. Intenta de nuevo.');
+            actualizarUIPlay(false);
+        });
+
+        // Media Session API (¡clave para pantalla bloqueada!)
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => {
+                if (audio.paused) audio.play();
+            });
+            navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+            navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
+            navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                if (details.fastSeek && audio.duration) {
+                    audio.currentTime = details.seekTime;
+                    actualizarBarra();
+                }
             });
         }
 
-        function cambioEstadoReproductor(event) {
-            if (event.data === YT.PlayerState.ENDED) pistaSiguiente();
-            if (event.data === YT.PlayerState.PLAYING) actualizarUIPlay(true);
-            if (event.data === YT.PlayerState.PAUSED) actualizarUIPlay(false);
-            if (event.data === YT.PlayerState.PLAYING && reproductorYT.isMuted()) reproductorYT.unMute();
+        function actualizarMediaSession(titulo, artista, caratula) {
+            if (!('mediaSession' in navigator)) return;
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: titulo,
+                artist: artista,
+                artwork: [
+                    { src: caratula, sizes: '512x512', type: 'image/jpeg' }
+                ]
+            });
         }
 
+        // ================== NAVEGACIÓN ==================
         function cambiarTab(idVista, tabElement) {
             document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
@@ -184,10 +207,13 @@
             cargarHistorial();
             cargarFila("el alfa dembow oficial", "fila-dembow", "normal");
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/static/service-worker.js').then(reg => console.log('SW registrado')).catch(err => console.error('SW error', err));
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('SW registrado:', reg.scope))
+                    .catch(err => console.error('Error SW:', err));
             }
         };
 
+        // ================== UTILIDADES ==================
         function decodificarHTML(html) {
             let txt = document.createElement("textarea");
             txt.innerHTML = html;
@@ -197,7 +223,11 @@
         function crearTarjeta(cancion, index, idContenedor, tipo) {
             let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Desconocido";
             let artista = "Fami Music", titulo = tituloRaw;
-            if (tituloRaw.includes("-")) { let partes = tituloRaw.split("-"); artista = partes[0].trim(); titulo = partes.slice(1).join("-").trim(); }
+            if (tituloRaw.includes("-")) {
+                let partes = tituloRaw.split("-");
+                artista = partes[0].trim();
+                titulo = partes.slice(1).join("-").trim();
+            }
             if (tipo === 'destacada') {
                 return `<div class="tarjeta-destacada" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}"><div class="overlay-destacada"></div><div class="textos-destacados"><div class="titulo-destacado">HECHOS PARA TI</div><div class="subtitulo-destacado">${titulo}</div><div class="desc-destacado">${artista}, y más artistas similares.</div></div></div>`;
             } else if (tipo === 'mix') {
@@ -210,6 +240,7 @@
             }
         }
 
+        // ================== CARGAR DATOS ==================
         async function cargarFila(busqueda, idContenedor, tipoUi) {
             const contenedor = document.getElementById(idContenedor);
             if (!contenedor) return;
@@ -220,7 +251,9 @@
                 if (!datos || datos.length === 0) throw new Error("Vacío");
                 memoriasInicio[idContenedor] = datos;
                 contenedor.innerHTML = datos.map((c, i) => crearTarjeta(c, i, idContenedor, tipoUi)).join('');
-            } catch (e) { contenedor.innerHTML = '<div class="mensaje-carga">Error al cargar.</div>'; }
+            } catch (e) {
+                contenedor.innerHTML = '<div class="mensaje-carga">Error al cargar.</div>';
+            }
         }
 
         let searchTimeout = null;
@@ -239,7 +272,10 @@
             let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('fila-recientes');
             if (!cont) return;
-            if (historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Aún no has escuchado nada.</div>'; return; }
+            if (historial.length === 0) {
+                cont.innerHTML = '<div class="mensaje-carga">Aún no has escuchado nada.</div>';
+                return;
+            }
             memoriasInicio['fila-recientes'] = historial;
             cont.innerHTML = historial.map((c, i) => crearTarjeta(c, i, 'fila-recientes', 'mix')).join('');
         }
@@ -248,7 +284,10 @@
             let lib = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
             const cont = document.getElementById('grid-biblioteca');
             if (!cont) return;
-            if (lib.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Tu biblioteca está vacía.</div>'; return; }
+            if (lib.length === 0) {
+                cont.innerHTML = '<div class="mensaje-carga">Tu biblioteca está vacía.</div>';
+                return;
+            }
             memoriasInicio['grid-biblioteca'] = lib;
             cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
         }
@@ -262,55 +301,65 @@
             cargarHistorial();
         }
 
+        // ================== REPRODUCCIÓN ==================
         function iniciarPista(indice, idContenedor) {
-            if (!reproductorYT) return alert("Cargando reproductor...");
+            if (!memoriasInicio[idContenedor]) return;
             playlistActual = memoriasInicio[idContenedor];
             indiceActual = indice;
             const pista = playlistActual[indiceActual];
             let tituloRaw = decodificarHTML(pista.title);
             let artista = "Fami Music", titulo = tituloRaw;
-            if (tituloRaw.includes("-")) { let partes = tituloRaw.split("-"); artista = partes[0].trim(); titulo = partes.slice(1).join("-").trim(); }
+            if (tituloRaw.includes("-")) {
+                let partes = tituloRaw.split("-");
+                artista = partes[0].trim();
+                titulo = partes.slice(1).join("-").trim();
+            }
+
+            // Actualizar UI
             document.getElementById('titulo-actual').innerText = titulo;
             document.getElementById('artista-actual').innerText = artista;
             elArte.src = pista.thumb;
             document.getElementById('mini-title').innerText = titulo;
             document.getElementById('mini-img').src = pista.thumb;
             miniPlayer.style.display = 'flex';
+
             guardarEnHistorial(pista);
-            reproductorYT.loadVideoById(pista.id);
+
+            // Actualizar Media Session
+            actualizarMediaSession(titulo, artista, pista.thumb);
+
+            // Reproducir audio desde nuestro backend
+            audio.src = `/stream/${pista.id}`;
+            audio.load();
+            audio.play().catch(err => console.error('Error al reproducir:', err));
+
             abrirReproductor();
-            if (progresoIntervalo) clearInterval(progresoIntervalo);
-            progresoIntervalo = setInterval(actualizarBarra, 500);
+            // Limpiar cualquier intervalo anterior (ya no es necesario, pero por seguridad)
+            if (window.progresoIntervalo) clearInterval(window.progresoIntervalo);
         }
 
-        function abrirReproductor() { uiRep.classList.add('activo'); document.body.classList.add('bloqueado'); }
-        function cerrarReproductor() { uiRep.classList.remove('activo'); document.body.classList.remove('bloqueado'); }
+        function abrirReproductor() { uiRep.classList.add('activo'); }
+        function cerrarReproductor() { uiRep.classList.remove('activo'); }
 
         function alternarPlay() {
-            if (!reproductorYT) return;
-            reproductorYT.getPlayerState() === 1 ? reproductorYT.pauseVideo() : reproductorYT.playVideo();
+            if (!audio.src) return;
+            if (audio.paused) {
+                audio.play().catch(e => console.error('Error play:', e));
+            } else {
+                audio.pause();
+            }
         }
         function alternarPlayFiltro(e) { e.stopPropagation(); alternarPlay(); }
 
         function actualizarUIPlay(estaSonando) {
             if (estaSonando) {
-                btnPlay.innerHTML = iconPause; btnMiniPlay.innerHTML = iconMiniPause; cajaMedia.classList.remove('pausado');
+                btnPlay.innerHTML = iconPause;
+                btnMiniPlay.innerHTML = iconMiniPause;
+                cajaMedia.classList.remove('pausado');
             } else {
-                btnPlay.innerHTML = iconPlay; btnMiniPlay.innerHTML = iconMiniPlay; cajaMedia.classList.add('pausado');
-            }
-        }
-
-        function alternarModoVideo() {
-            modoVideoActivo = !modoVideoActivo;
-            const btnV = document.getElementById('btn-toggle-video');
-            if (modoVideoActivo) {
-                elArte.classList.add('oculto');
-                btnV.classList.add('encendido');
-                btnV.innerText = "Ocultar Video";
-            } else {
-                elArte.classList.remove('oculto');
-                btnV.classList.remove('encendido');
-                btnV.innerText = "Ver Video Oficial";
+                btnPlay.innerHTML = iconPlay;
+                btnMiniPlay.innerHTML = iconMiniPlay;
+                cajaMedia.classList.add('pausado');
             }
         }
 
@@ -328,23 +377,24 @@
         }
 
         function actualizarBarra() {
-            if (!reproductorYT || !reproductorYT.getDuration) return;
-            let duracion = reproductorYT.getDuration();
-            let actual = reproductorYT.getCurrentTime();
-            if (duracion > 0) {
-                barra.max = duracion; barra.value = actual;
-                document.getElementById('tiempo-actual').innerText = formatoTiempo(actual);
-                document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(duracion - actual);
-            }
+            if (!audio.duration) return;
+            let actual = audio.currentTime;
+            let duracion = audio.duration;
+            barra.value = actual;
+            document.getElementById('tiempo-actual').innerText = formatoTiempo(actual);
+            document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(duracion - actual);
         }
+
+        barra.oninput = (e) => {
+            audio.currentTime = e.target.value;
+        };
 
         function formatoTiempo(segundos) {
             if (isNaN(segundos)) return "0:00";
-            let min = Math.floor(segundos / 60), sec = Math.floor(segundos % 60);
+            let min = Math.floor(segundos / 60);
+            let sec = Math.floor(segundos % 60);
             return `${min}:${sec < 10 ? '0' : ''}${sec}`;
         }
-
-        barra.oninput = (e) => { if (reproductorYT) reproductorYT.seekTo(e.target.value, true); };
     </script>
 </body>
 </html>
