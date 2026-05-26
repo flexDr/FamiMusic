@@ -51,7 +51,6 @@ def search(q: str):
 
 @app.get("/stream/{video_id}")
 async def stream(video_id: str):
-    # Extraer la URL del audio con yt-dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
@@ -67,7 +66,6 @@ async def stream(video_id: str):
         except Exception as e:
             return JSONResponse({"error": f"No se pudo obtener el audio: {str(e)}"}, status_code=400)
 
-    # Transmitir el audio en chunks
     def iter_audio():
         headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
@@ -86,49 +84,4 @@ async def stream(video_id: str):
             "Content-Disposition": f'inline; filename="{title}.m4a"',
             "Cache-Control": "no-cache",
         }
-    )            resultados = []
-            for item in data.get('items', []):
-                if item['id'].get('videoId'):
-                    vid = item['id']['videoId']
-                    thumb = item['snippet']['thumbnails'].get('high', {}).get('url')
-                    if not thumb:
-                        thumb = item['snippet']['thumbnails'].get('medium', {}).get('url', '')
-                    resultados.append({
-                        "id": vid,
-                        "title": item['snippet']['title'],
-                        "thumb": thumb
-                    })
-            if not resultados:
-                return JSONResponse(content=BACKUP_SONGS)
-            return JSONResponse(content=resultados)
-    except Exception as e:
-        print(f"Error: {e}")
-        return JSONResponse(content=BACKUP_SONGS)
-
-@app.get("/audio/{video_id}")
-def get_audio(video_id: str):
-    """Devuelve la URL del stream de audio para reproducir con <audio>"""
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
-        'extract_flat': False,
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            # Buscar la URL del stream de audio
-            if 'url' in info:
-                audio_url = info['url']
-            else:
-                # Buscar en formats
-                for f in info.get('formats', []):
-                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                        audio_url = f['url']
-                        break
-                else:
-                    audio_url = info['formats'][0]['url']
-        return JSONResponse({"audio_url": audio_url})
-    except Exception as e:
-        print(f"Error extrayendo audio: {e}")
-        return JSONResponse({"error": "No se pudo obtener el audio"}, status_code=500)
+    )
