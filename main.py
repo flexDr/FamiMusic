@@ -2,15 +2,14 @@ import json
 import urllib.request
 import urllib.parse
 import re
+import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Inicializamos el servidor
 app = FastAPI(title="FamiMusic Backend")
 
-# === EL PUENTE MÁGICO (CORS) ===
-# Esto le dice al servidor que permita la entrada a tu app de iOS
+# Habilita la entrada para tu app de iPhone
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -21,17 +20,16 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-    return {"status": "Servidor Fami Music Activo", "cors": "Habilitado"}
+    return {"status": "Servidor Fami Music Activo", "motor": "espejos-directos"}
 
 @app.get("/search/{query}")
 def search_youtube(query: str):
-    """Buscador optimizado que extrae los datos directamente sin consumir cuota de API"""
+    """Buscador directo (Este funciona perfecto y no lo bloquean)"""
     try:
         search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
-        req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
         html = urllib.request.urlopen(req).read().decode('utf-8')
         
-        # Extraer la base de datos interna de la página
         match = re.search(r'var ytInitialData = (.*?);</script>', html)
         if not match:
             return []
@@ -44,18 +42,13 @@ def search_youtube(query: str):
         for item in contents:
             if 'videoRenderer' in item:
                 video = item['videoRenderer']
-                vid_id = video['videoId']
-                title = video['title']['runs'][0]['text']
-                
-                # Evitamos transmisiones en vivo filtrando solo videos con duración
                 if 'lengthText' in video:
-                    thumb = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
                     results.append({
-                        "id": vid_id,
-                        "title": title,
-                        "thumb": thumb
+                        "id": video['videoId'],
+                        "title": video['title']['runs'][0]['text'],
+                        "thumb": f"https://i.ytimg.com/vi/{video['videoId']}/hqdefault.jpg"
                     })
-            if len(results) >= 20: # Límite de 20 resultados por búsqueda
+            if len(results) >= 20: 
                 break
                 
         return results
@@ -65,31 +58,15 @@ def search_youtube(query: str):
 
 @app.get("/audio/{video_id}")
 def get_audio(video_id: str):
-    """Extractor de audio puro que salta el bloqueo del servidor en la nube"""
-    try:
-        # Usamos una API libre para obtener los enlaces limpios sin que YouTube bloquee la IP de Render
-        piped_url = f"https://pipedapi.kavin.rocks/streams/{video_id}"
-        req = urllib.request.Request(piped_url, headers={'User-Agent': 'Mozilla/5.0'})
-        res = urllib.request.urlopen(req).read().decode('utf-8')
-        data = json.loads(res)
-        
-        audio_streams = data.get('audioStreams', [])
-        if not audio_streams:
-            return JSONResponse(status_code=404, content={"error": "Audio no disponible"})
-        
-        # El iPhone requiere preferentemente formato M4A para la reproducción en segundo plano
-        best_audio = None
-        for stream in audio_streams:
-            if stream.get('format') == 'M4A':
-                best_audio = stream['url']
-                break
-        
-        # Fallback de seguridad por si no hay M4A
-        if not best_audio:
-            best_audio = audio_streams[0]['url']
-            
-        return {"url": best_audio}
-        
-    except Exception as e:
-        print("Error al extraer audio:", e)
-        return JSONResponse(status_code=500, content={"error": "Fallo en la red de extracción"})
+    """Bypass total: Enlaces directos M4A desde nodos espejo"""
+    # Lista de servidores espejo descentralizados
+    espejos = [
+        f"https://inv.tux.pizza/latest_version?id={video_id}&itag=140",
+        f"https://invidious.jing.rocks/latest_version?id={video_id}&itag=140",
+        f"https://invidious.nerdvpn.de/latest_version?id={video_id}&itag=140"
+    ]
+    
+    # Elegimos uno al azar para no saturarlos
+    url_directa = random.choice(espejos)
+    
+    return {"url": url_directa}
