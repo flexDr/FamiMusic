@@ -1,92 +1,63 @@
 import json
 import urllib.request
 import urllib.parse
-import re
+import os
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
-app = FastAPI(title="FamiMusic Backend")
-
-# Le abre las puertas a tu iPhone sin bloqueos de seguridad
+app = FastAPI(title="FamiMusic")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+
+BACKUP_SONGS = [
+    {"id": "dQw4w9WgXcQ", "title": "Never Gonna Give You Up", "thumb": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"},
+    {"id": "kJQP7kiw5Fk", "title": "Dance Monkey", "thumb": "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg"},
+    {"id": "RgKAFK5djSk", "title": "Levitating", "thumb": "https://img.youtube.com/vi/RgKAFK5djSk/hqdefault.jpg"},
+]
+
 @app.get("/")
 def home():
-    return {"status": "Servidor Activo", "motor": "cobalt-blindado"}
+    return FileResponse("templates/index.html")
 
-@app.get("/search/{query}")
-def search_youtube(query: str):
-    """Buscador directo (Este no lo bloquean porque solo lee texto)"""
-    try:
-        search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
-        req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-        html = urllib.request.urlopen(req).read().decode('utf-8')
-        
-        match = re.search(r'var ytInitialData = (.*?);</script>', html)
-        if not match: return []
-            
-        data = json.loads(match.group(1))
-        results = []
-        
-        contents = data['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
-        
-        for item in contents:
-            if 'videoRenderer' in item:
-                video = item['videoRenderer']
-                if 'lengthText' in video:
-                    results.append({
-                        "id": video['videoId'],
-                        "title": video['title']['runs'][0]['text'],
-                        "thumb": f"https://i.ytimg.com/vi/{video['videoId']}/hqdefault.jpg"
-                    })
-            if len(results) >= 20: break
-        return results
-    except Exception:
-        return []
-
-@app.get("/audio/{video_id}")
-def get_audio(video_id: str):
-    """Arquitectura de 3 niveles para que el audio jamás se cuelgue"""
+@app.get("/search/{q}")
+def search(q: str):
+    if not YOUTUBE_API_KEY:
+        return JSONResponse(content=BACKUP_SONGS)
     
-    # 1. Motor Principal: Cobalt (El más rápido y antibloqueos)
+    q_safe = urllib.parse.quote(q)
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q={q_safe}&type=video&key={YOUTUBE_API_KEY}"
+    
     try:
-        url = "https://co.wuk.sh/api/json"
-        datos = json.dumps({
-            "url": f"https://www.youtube.com/watch?v={video_id}",
-            "isAudioOnly": True,
-            "aFormat": "mp3"
-        }).encode('utf-8')
-        req = urllib.request.Request(url, data=datos, headers={"Content-Type": "application/json", "Accept": "application/json"})
-        res = urllib.request.urlopen(req, timeout=5).read().decode('utf-8')
-        return {"url": json.loads(res)["url"]}
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read().decode('utf-8'))
+            resultados = []
+            for item in data.get('items', []):
+                if item['id'].get('videoId'):
+                    vid = item['id']['videoId']
+                    thumb = item['snippet']['thumbnails'].get('high', {}).get('url') or \
+                            item['snippet']['thumbnails'].get('medium', {}).get('url', '')
+                    resultados.append({
+                        "id": vid,
+                        "title": item['snippet']['title'],
+                        "thumb": thumb
+                    })
+            return JSONResponse(content=resultados if resultados else BACKUP_SONGS)
     except Exception as e:
-        print("Fallo Cobalt:", e)
-        
-    # 2. Respaldo Nivel 1: Invidious Directo
-    try:
-        req = urllib.request.Request(f"https://invidious.jing.rocks/api/v1/videos/{video_id}")
-        res = urllib.request.urlopen(req, timeout=4).read().decode('utf-8')
-        for f in json.loads(res).get("formatStreams", []):
-            if f.get("itag") == "140":
-                return {"url": f["url"]}
-    except Exception as e:
-        print("Fallo Invidious:", e)
-        
-    # 3. Respaldo Nivel 2: Red Piped
-    try:
-        req = urllib.request.Request(f"https://pipedapi.kavin.rocks/streams/{video_id}")
-        res = urllib.request.urlopen(req, timeout=4).read().decode('utf-8')
-        for s in json.loads(res).get("audioStreams", []):
-            if s.get("format") == "M4A":
-                return {"url": s["url"]}
-    except Exception as e:
-        print("Fallo Piped:", e)
+        print(f"Error: {e}")
+        return JSONResponse(content=BACKUP_SONGS)
 
-    return JSONResponse(status_code=500, content={"error": "Bloqueo total de la red"})
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
