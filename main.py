@@ -1,6 +1,7 @@
 import json
 import random
 import httpx
+import urllib.parse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
@@ -16,57 +17,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# REPOSITORIO GLOBAL DE TÚNELES (Rotación automática)
+# REPOSITORIO GLOBAL DE TÚNELES PIPED (Alta Velocidad)
 NODOS_POOL = [
-    {"tipo": "piped", "url": "https://pipedapi.kavin.rocks"},
-    {"tipo": "piped", "url": "https://pipedapi.syncpundit.io"},
-    {"tipo": "piped", "url": "https://pipedapi.smnz.de"},
-    {"tipo": "piped", "url": "https://pipedapi.tokhmi.xyz"},
-    {"tipo": "piped", "url": "https://piapi.pussthecat.org"},
-    {"tipo": "piped", "url": "https://piped-api.garudalinux.org"},
-    {"tipo": "invidious", "url": "https://invidious.jing.rocks"},
-    {"tipo": "invidious", "url": "https://inv.tux.pizza"},
-    {"tipo": "invidious", "url": "https://invidious.nerdvpn.de"},
-    {"tipo": "invidious", "url": "https://invidious.flokinet.to"}
+    {"url": "https://pipedapi.kavin.rocks"},
+    {"url": "https://pipedapi.syncpundit.io"},
+    {"url": "https://pipedapi.smnz.de"},
+    {"url": "https://pipedapi.tokhmi.xyz"},
+    {"url": "https://piapi.pussthecat.org"},
+    {"url": "https://piped-api.garudalinux.org"}
 ]
 
 # RUTA PRINCIPAL: Muestra tu página web
 @app.get("/")
 def cargar_interfaz():
-    # Render irá a buscar el archivo HTML en tu carpeta "templates"
     return FileResponse("templates/index.html")
 
-# RUTA DE ESTADO: Para verificar si los túneles están vivos
+# RUTA DE ESTADO
 @app.get("/status")
 def check_status():
-    nodos_vivos = len(NODOS_POOL)
-    return {"status": "ONLINE", "tunes_activos": nodos_vivos, "seguridad": "Bypass-Nativo-Activo"}
+    return {"status": "ONLINE", "tunes_activos": len(NODOS_POOL), "seguridad": "Activa"}
 
-# RUTA DE BÚSQUEDA
+# RUTA DE BÚSQUEDA (Corregida para leer el formato exacto de Piped)
 @app.get("/search/{query}")
 async def buscar_musica(query: str):
-    """Buscador balanceado con rotación de túneles"""
     nodos_prueba = list(NODOS_POOL)
     random.shuffle(nodos_prueba) 
     
-    async with httpx.AsyncClient(timeout=6.0) as client:
+    async with httpx.AsyncClient(timeout=8.0) as client:
         for nodo in nodos_prueba:
             try:
-                if nodo["tipo"] == "piped":
-                    url = f"{nodo['url']}/search?q={httpx.internal_utils.urlencode(query)}&filter=videos"
-                    res = await client.get(url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        resultados = []
-                        for item in data.get("videos", []):
+                # Codificación segura de la URL (Arreglo 1)
+                query_codificado = urllib.parse.quote(query)
+                url = f"{nodo['url']}/search?q={query_codificado}&filter=videos"
+                res = await client.get(url)
+                
+                if res.status_code == 200:
+                    data = res.json()
+                    resultados = []
+                    
+                    # Piped devuelve los resultados dentro de "items" (Arreglo 2)
+                    for item in data.get("items", []):
+                        # Piped no da "id", da "url" (ej: /watch?v=ABCDEFG) (Arreglo 3)
+                        video_url = item.get("url", "")
+                        video_id = video_url.replace("/watch?v=", "")
+                        
+                        if video_id and item.get("type") == "stream":
                             resultados.append({
-                                "id": item["id"],
-                                "title": item["title"],
-                                "thumb": item["thumbnail"],
+                                "id": video_id,
+                                "title": item.get("title", "Desconocido"),
+                                "thumb": item.get("thumbnail", ""),
                                 "uploader": item.get("uploaderName", "Fami Music")
                             })
+                    
+                    if len(resultados) > 0:
                         return resultados
-            except Exception:
+            except Exception as e:
+                print(f"Error en túnel {nodo['url']}: {e}")
                 continue 
                 
     raise HTTPException(status_code=503, detail="Red de búsqueda saturada temporalmente")
@@ -74,38 +80,38 @@ async def buscar_musica(query: str):
 # RUTA DE STREAMING (El bypass de audio)
 @app.get("/stream/{video_id}")
 async def tunel_de_transmision(video_id: str):
-    """Extrae el audio y lo transmite al iPhone sin bloqueos"""
     nodos_prueba = list(NODOS_POOL)
     random.shuffle(nodos_prueba)
     
     audio_url = None
     
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with httpx.AsyncClient(timeout=8.0) as client:
         for nodo in nodos_prueba:
             try:
-                endpoint = f"{nodo['url']}/streams/{video_id}" if nodo["tipo"] == "piped" else f"{nodo['url']}/api/v1/videos/{video_id}"
+                endpoint = f"{nodo['url']}/streams/{video_id}"
                 res = await client.get(endpoint)
-                if res.status_code != 200:
-                    continue
                 
-                data = res.json()
-                if nodo["tipo"] == "piped" and "audioStreams" in data:
-                    streams = data["audioStreams"]
-                    m4a = next((s for s in streams if s.get("format") == "M4A"), streams[0])
-                    audio_url = m4a["url"]
-                elif nodo["tipo"] == "invidious" and "formatStreams" in data:
-                    streams = data["formatStreams"]
-                    m4a = next((s for s in streams if s.get("itag") in ["140", 140]), None)
-                    if m4a: audio_url = m4a["url"]
-                    
-                if audio_url:
-                    break
+                if res.status_code == 200:
+                    data = res.json()
+                    if "audioStreams" in data:
+                        streams = data["audioStreams"]
+                        # Filtramos para asegurar que baje el formato M4A (Nativo de Apple)
+                        m4a = next((s for s in streams if s.get("format") == "M4A"), None)
+                        
+                        # Si no hay M4A, agarramos el primero disponible
+                        if not m4a and len(streams) > 0:
+                            m4a = streams[0]
+                            
+                        if m4a:
+                            audio_url = m4a.get("url")
+                            break
             except Exception:
                 continue
 
     if not audio_url:
         raise HTTPException(status_code=500, detail="Ningún túnel pudo descifrar el flujo")
 
+    # Infiltración y retransmisión al iPhone
     async def generador_de_bytes():
         async with httpx.AsyncClient() as client:
             headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15"}
