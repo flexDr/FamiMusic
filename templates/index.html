@@ -6,25 +6,9 @@
     <title>Fami Music</title>
     <style>
         /* === VARIABLES Y CONFIGURACIÓN === */
-        :root { 
-            --text: #ffffff; 
-            --text-muted: #ebebf599; 
-            --accent: #fa233b; 
-            --tab-bg: rgba(0, 0, 0, 0.55); 
-        }
+        :root { --text: #ffffff; --text-muted: #ebebf599; --accent: #fa233b; --tab-bg: rgba(0, 0, 0, 0.55); }
         
-        body { 
-            margin: 0; 
-            padding: 0; 
-            color: var(--text); 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; 
-            padding-bottom: 160px; 
-            background: #000; 
-            -webkit-font-smoothing: antialiased; 
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        
+        body { margin: 0; padding: 0; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; padding-bottom: 160px; background: #000; -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none; }
         body.bloqueado { overflow: hidden; touch-action: none; }
 
         /* === FONDO DINÁMICO AURORA === */
@@ -208,14 +192,11 @@
     </nav>
 
     <script>
-        // === RUTA AL BUSCADOR EN RENDER ===
         const BACKEND_URL = "https://famimusic.onrender.com";
 
         const gradientesApple = [
-            "linear-gradient(135deg, #fa233b, #d91c5c)",
-            "linear-gradient(135deg, #5e17eb, #9155fd)",
-            "linear-gradient(135deg, #ff9500, #ff5e3a)",
-            "linear-gradient(135deg, #00c6ff, #0072ff)",
+            "linear-gradient(135deg, #fa233b, #d91c5c)", "linear-gradient(135deg, #5e17eb, #9155fd)",
+            "linear-gradient(135deg, #ff9500, #ff5e3a)", "linear-gradient(135deg, #00c6ff, #0072ff)",
             "linear-gradient(135deg, #1d976c, #93f9b9)"
         ];
 
@@ -287,7 +268,6 @@
             const contenedor = document.getElementById(idContenedor);
             contenedor.innerHTML = '<div class="mensaje-carga">Actualizando contenido...</div>';
             try {
-                // El buscador sigue usando el servidor seguro
                 const res = await fetch(`${BACKEND_URL}/search/${encodeURIComponent(busqueda)}`);
                 const datos = await res.json();
                 if (!datos || datos.length === 0) throw new Error("Vacío");
@@ -333,25 +313,20 @@
             cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
         }
 
-        // === CEREBRO ACTUALIZADO: BYPASS DIRECTO DESDE EL IPHONE ===
+        // === CEREBRO TRANSMISOR: CONEXIÓN DIRECTA CON RENDER ===
         async function iniciarPista(indice, idContenedor) {
             playlistActual = memoriasInicio[idContenedor];
             indiceActual = indice;
             const pista = playlistActual[indiceActual];
 
             let tituloRaw = decodificarHTML(pista.title);
-            let artista = "Fami Music"; 
+            let artista = pista.uploader || "Fami Music"; 
             let titulo = tituloRaw;
-            if (tituloRaw.includes("-")) {
-                let partes = tituloRaw.split("-");
-                artista = partes[0].trim(); 
-                titulo = partes.slice(1).join("-").trim();
-            }
 
-            document.getElementById('titulo-actual').innerText = "Conectando...";
+            document.getElementById('titulo-actual').innerText = "Abriendo túnel seguro...";
             document.getElementById('artista-actual').innerText = artista;
             document.getElementById('arte-cancion').src = pista.thumb;
-            document.getElementById('mini-title').innerText = "Sincronizando...";
+            document.getElementById('mini-title').innerText = "Conectando...";
             document.getElementById('mini-artist').innerText = artista;
             document.getElementById('mini-img').src = pista.thumb;
             
@@ -359,42 +334,31 @@
             guardarEnHistorial(pista);
             abrirReproductor();
 
-            try {
-                // BYPASS TOTAL: El iPhone pide la música directamente, ignorando a Render
-                const respuesta = await fetch(`https://pipedapi.kavin.rocks/streams/${pista.id}`);
-                const datosAudio = await respuesta.json();
-                
-                let audioUrl = null;
-                if (datosAudio.audioStreams && datosAudio.audioStreams.length > 0) {
-                    // Buscamos el formato M4A nativo de Apple para la pantalla apagada
-                    const m4a = datosAudio.audioStreams.find(s => s.format === 'M4A');
-                    audioUrl = m4a ? m4a.url : datosAudio.audioStreams[0].url;
-                }
+            // La URL ahora apunta 100% a tu servidor de Render, sin intermediarios web
+            const streamUrl = `${BACKEND_URL}/stream/${pista.id}`;
 
-                if(!audioUrl) throw new Error("Fallo de enlace");
+            document.getElementById('titulo-actual').innerText = titulo;
+            document.getElementById('mini-title').innerText = titulo;
 
-                document.getElementById('titulo-actual').innerText = titulo;
-                document.getElementById('mini-title').innerText = titulo;
+            // Le inyectamos el canal de Render directamente al motor HTML5 de Apple
+            audioEl.src = streamUrl;
+            audioEl.load(); // Fuerza al iPhone a precargar los metadatos del flujo
+            
+            audioEl.play().catch(err => {
+                console.log("Interrupción de reproducción controlada.");
+            });
 
-                // Asignación directa al motor de audio del iPhone
-                audioEl.src = audioUrl;
-                audioEl.play().catch(err => console.log("Interrupción automática"));
-
-                // Inyección nativa al centro de control del iPhone (Lock Screen)
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: titulo, 
-                        artist: artista,
-                        artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
-                    });
-                    navigator.mediaSession.setActionHandler('play', alternarPlay);
-                    navigator.mediaSession.setActionHandler('pause', alternarPlay);
-                    navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
-                    navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
-                }
-            } catch (error) {
-                document.getElementById('titulo-actual').innerText = "Servidor saturado, intenta otro tema";
-                document.getElementById('mini-title').innerText = "Error de red";
+            // Integración nativa a la pantalla de bloqueo (Lock Screen)
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: titulo, 
+                    artist: artista,
+                    artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
+                });
+                navigator.mediaSession.setActionHandler('play', alternarPlay);
+                navigator.mediaSession.setActionHandler('pause', alternarPlay);
+                navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
+                navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
             }
         }
 
