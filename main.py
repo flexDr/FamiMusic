@@ -1,14 +1,13 @@
-import json
 import random
 import httpx
 import urllib.parse
+import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 
-app = FastAPI(title="FamiMusic Master Server v3")
+app = FastAPI(title="FamiMusic CDN v4 - Red Masiva")
 
-# Permitir conexiones seguras
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,17 +16,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# REPOSITORIO GLOBAL DE TÚNELES PIPED (Alta Velocidad)
+# === EL ARSENAL DE FUEGO ===
+PROXIES_POOL = []
+
+# Base de túneles espejo robustos (Se pueden agregar más aquí)
 NODOS_POOL = [
     {"url": "https://pipedapi.kavin.rocks"},
     {"url": "https://pipedapi.syncpundit.io"},
     {"url": "https://pipedapi.smnz.de"},
     {"url": "https://pipedapi.tokhmi.xyz"},
-    {"url": "https://piapi.pussthecat.org"},
-    {"url": "https://piped-api.garudalinux.org"}
+    {"url": "https://piapi.pussthecat.org"}
 ]
 
-# RUTA PRINCIPAL: Muestra tu página web
+# === EL CAZADOR AUTOMÁTICO (Scraping de Proxies al iniciar) ===
+@app.on_event("startup")
+async def cargar_arsenal_fantasma():
+    """Descarga miles de proxies gratuitos frescos cada vez que el servidor despierta"""
+    print("Iniciando raspado de proxies gratuitos globales...")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Proxyscrape API: Nos da una lista de texto puro con miles de IPs libres
+            res = await client.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all")
+            if res.status_code == 200:
+                lista_cruda = res.text.strip().split("\r\n")
+                global PROXIES_POOL
+                PROXIES_POOL = [f"http://{p}" for p in lista_cruda if p]
+                print(f"🔥 ÉXITO: {len(PROXIES_POOL)} proxies inyectados en la memoria.")
+    except Exception as e:
+        print(f"Error en el scraping inicial, operando con túneles base: {e}")
+
+# RUTA PRINCIPAL
 @app.get("/")
 def cargar_interfaz():
     return FileResponse("templates/index.html")
@@ -35,18 +53,27 @@ def cargar_interfaz():
 # RUTA DE ESTADO
 @app.get("/status")
 def check_status():
-    return {"status": "ONLINE", "tunes_activos": len(NODOS_POOL), "seguridad": "Activa"}
+    return {
+        "status": "ONLINE", 
+        "tuneles_espejo": len(NODOS_POOL), 
+        "proxies_fantasma": len(PROXIES_POOL),
+        "defensa": "Nivel Máximo"
+    }
 
-# RUTA DE BÚSQUEDA (Corregida para leer el formato exacto de Piped)
+# BÚSQUEDA CAMUFLADA (Usa los 1,000 proxies para evitar bloqueos)
 @app.get("/search/{query}")
 async def buscar_musica(query: str):
     nodos_prueba = list(NODOS_POOL)
     random.shuffle(nodos_prueba) 
     
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    # Selecciona un proxy al azar de los miles que raspamos
+    proxy_elegido = random.choice(PROXIES_POOL) if len(PROXIES_POOL) > 0 else None
+    proxies_config = {"http://": proxy_elegido, "https://": proxy_elegido} if proxy_elegido else None
+    
+    # Inyectamos el proxy en el motor HTTPX
+    async with httpx.AsyncClient(proxies=proxies_config, timeout=8.0) as client:
         for nodo in nodos_prueba:
             try:
-                # Codificación segura de la URL (Arreglo 1)
                 query_codificado = urllib.parse.quote(query)
                 url = f"{nodo['url']}/search?q={query_codificado}&filter=videos"
                 res = await client.get(url)
@@ -55,9 +82,7 @@ async def buscar_musica(query: str):
                     data = res.json()
                     resultados = []
                     
-                    # Piped devuelve los resultados dentro de "items" (Arreglo 2)
                     for item in data.get("items", []):
-                        # Piped no da "id", da "url" (ej: /watch?v=ABCDEFG) (Arreglo 3)
                         video_url = item.get("url", "")
                         video_id = video_url.replace("/watch?v=", "")
                         
@@ -71,18 +96,16 @@ async def buscar_musica(query: str):
                     
                     if len(resultados) > 0:
                         return resultados
-            except Exception as e:
-                print(f"Error en túnel {nodo['url']}: {e}")
+            except Exception:
                 continue 
                 
-    raise HTTPException(status_code=503, detail="Red de búsqueda saturada temporalmente")
+    raise HTTPException(status_code=503, detail="Red saturada. Los proxies están rotando, intenta en 1 segundo.")
 
-# RUTA DE STREAMING (El bypass de audio)
+# TRANSMISOR DE ALTA VELOCIDAD (Conexión directa del servidor para evitar cortes de audio)
 @app.get("/stream/{video_id}")
 async def tunel_de_transmision(video_id: str):
     nodos_prueba = list(NODOS_POOL)
     random.shuffle(nodos_prueba)
-    
     audio_url = None
     
     async with httpx.AsyncClient(timeout=8.0) as client:
@@ -95,13 +118,9 @@ async def tunel_de_transmision(video_id: str):
                     data = res.json()
                     if "audioStreams" in data:
                         streams = data["audioStreams"]
-                        # Filtramos para asegurar que baje el formato M4A (Nativo de Apple)
                         m4a = next((s for s in streams if s.get("format") == "M4A"), None)
-                        
-                        # Si no hay M4A, agarramos el primero disponible
                         if not m4a and len(streams) > 0:
                             m4a = streams[0]
-                            
                         if m4a:
                             audio_url = m4a.get("url")
                             break
@@ -111,7 +130,6 @@ async def tunel_de_transmision(video_id: str):
     if not audio_url:
         raise HTTPException(status_code=500, detail="Ningún túnel pudo descifrar el flujo")
 
-    # Infiltración y retransmisión al iPhone
     async def generador_de_bytes():
         async with httpx.AsyncClient() as client:
             headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15"}
