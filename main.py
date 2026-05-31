@@ -3,11 +3,11 @@ import random
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 
 app = FastAPI(title="FamiMusic Master Server v3")
 
-# Permitir conexiones seguras desde tu iPhone
+# Permitir conexiones seguras
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,8 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# REPOSITORIO GLOBAL DE TÚNELES (Nodos Espejo Piped e Invidious de Alta Velocidad)
-# Aquí puedes expandir la lista a cientos de nodos públicos o tu URL de Proxy Residencial
+# REPOSITORIO GLOBAL DE TÚNELES (Rotación automática)
 NODOS_POOL = [
     {"tipo": "piped", "url": "https://pipedapi.kavin.rocks"},
     {"tipo": "piped", "url": "https://pipedapi.syncpundit.io"},
@@ -28,20 +27,27 @@ NODOS_POOL = [
     {"tipo": "invidious", "url": "https://invidious.jing.rocks"},
     {"tipo": "invidious", "url": "https://inv.tux.pizza"},
     {"tipo": "invidious", "url": "https://invidious.nerdvpn.de"},
-    {"tipo": "invidious", "url": "https://invidious.flokinet.to"},
-    {"tipo": "invidious", "url": "https://inv.tux.pizza"}
+    {"tipo": "invidious", "url": "https://invidious.flokinet.to"}
 ]
 
+# RUTA PRINCIPAL: Muestra tu página web
 @app.get("/")
+def cargar_interfaz():
+    # Render irá a buscar el archivo HTML en tu carpeta "templates"
+    return FileResponse("templates/index.html")
+
+# RUTA DE ESTADO: Para verificar si los túneles están vivos
+@app.get("/status")
 def check_status():
     nodos_vivos = len(NODOS_POOL)
     return {"status": "ONLINE", "tunes_activos": nodos_vivos, "seguridad": "Bypass-Nativo-Activo"}
 
+# RUTA DE BÚSQUEDA
 @app.get("/search/{query}")
 async def buscar_musica(query: str):
-    """Buscador balanceado: Interroga a los nodos hasta que uno devuelva los resultados"""
+    """Buscador balanceado con rotación de túneles"""
     nodos_prueba = list(NODOS_POOL)
-    random.shuffle(nodos_prueba) # Mezclamos para que YouTube nunca vea un patrón de IP
+    random.shuffle(nodos_prueba) 
     
     async with httpx.AsyncClient(timeout=6.0) as client:
         for nodo in nodos_prueba:
@@ -61,13 +67,14 @@ async def buscar_musica(query: str):
                             })
                         return resultados
             except Exception:
-                continue # Si un nodo falla o da timeout, salta al siguiente en microsegundos
+                continue 
                 
     raise HTTPException(status_code=503, detail="Red de búsqueda saturada temporalmente")
 
+# RUTA DE STREAMING (El bypass de audio)
 @app.get("/stream/{video_id}")
 async def tunel_de_transmision(video_id: str):
-    """EL CEREBRO TRANSMISOR: Extrae el audio tras bambalinas y lo transmite al iPhone"""
+    """Extrae el audio y lo transmite al iPhone sin bloqueos"""
     nodos_prueba = list(NODOS_POOL)
     random.shuffle(nodos_prueba)
     
@@ -82,7 +89,6 @@ async def tunel_de_transmision(video_id: str):
                     continue
                 
                 data = res.json()
-                # Extracción de formato nativo de Apple (M4A / AAC)
                 if nodo["tipo"] == "piped" and "audioStreams" in data:
                     streams = data["audioStreams"]
                     m4a = next((s for s in streams if s.get("format") == "M4A"), streams[0])
@@ -93,17 +99,15 @@ async def tunel_de_transmision(video_id: str):
                     if m4a: audio_url = m4a["url"]
                     
                 if audio_url:
-                    break # ¡Enlace encontrado con éxito! Rompe el bucle.
+                    break
             except Exception:
                 continue
 
     if not audio_url:
         raise HTTPException(status_code=500, detail="Ningún túnel pudo descifrar el flujo")
 
-    # AQUÍ OCURRE LA INFILTRACIÓN: Render descarga el flujo y se lo reenvía al iPhone en vivo
     async def generador_de_bytes():
         async with httpx.AsyncClient() as client:
-            # Añadimos un encabezado de un navegador real para que los servidores no sospechen
             headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15"}
             async with client.stream("GET", audio_url, headers=headers, timeout=None) as response:
                 async for chunk in response.iter_bytes(chunk_size=4096 * 4):
