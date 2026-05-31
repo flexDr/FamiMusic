@@ -2,7 +2,6 @@ import json
 import urllib.request
 import urllib.parse
 import re
-import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,11 +19,11 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-    return {"status": "Servidor Fami Music Activo", "motor": "espejos-directos"}
+    return {"status": "Servidor Fami Music Activo", "motor": "multi-nodos"}
 
 @app.get("/search/{query}")
 def search_youtube(query: str):
-    """Buscador directo (Este funciona perfecto y no lo bloquean)"""
+    """Buscador directo para evitar cuotas de API"""
     try:
         search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
         req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -58,15 +57,40 @@ def search_youtube(query: str):
 
 @app.get("/audio/{video_id}")
 def get_audio(video_id: str):
-    """Bypass total: Enlaces directos M4A desde nodos espejo"""
-    # Lista de servidores espejo descentralizados
-    espejos = [
-        f"https://inv.tux.pizza/latest_version?id={video_id}&itag=140",
-        f"https://invidious.jing.rocks/latest_version?id={video_id}&itag=140",
-        f"https://invidious.nerdvpn.de/latest_version?id={video_id}&itag=140"
+    """Sistema de alta disponibilidad: Busca entre múltiples servidores hasta obtener el link"""
+    servidores_piped = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.syncpundit.io",
+        "https://piped-api.garudalinux.org",
+        "https://piapi.pussthecat.org",
+        "https://pipedapi.smnz.de"
     ]
     
-    # Elegimos uno al azar para no saturarlos
-    url_directa = random.choice(espejos)
-    
-    return {"url": url_directa}
+    for servidor in servidores_piped:
+        try:
+            url = f"{servidor}/streams/{video_id}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            # Le damos 4 segundos máximo a cada servidor para responder
+            res = urllib.request.urlopen(req, timeout=4).read().decode('utf-8')
+            data = json.loads(res)
+            
+            audio_streams = data.get('audioStreams', [])
+            if audio_streams:
+                best_audio = None
+                for stream in audio_streams:
+                    # Buscamos específicamente M4A (el formato nativo perfecto para iPhone)
+                    if stream.get('format') == 'M4A':
+                        best_audio = stream['url']
+                        break
+                
+                # Si no hay M4A, agarramos el primer audio disponible
+                if not best_audio:
+                    best_audio = audio_streams[0]['url']
+                    
+                return {"url": best_audio}
+        except Exception as e:
+            # Si un servidor falla, el ciclo ignora el error y prueba con el siguiente de la lista
+            continue
+            
+    # Si los 5 servidores fallan, devuelve un error controlado
+    return JSONResponse(status_code=500, content={"error": "Todos los servidores espejo fallaron"})
