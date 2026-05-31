@@ -176,6 +176,7 @@
                 <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
             </button>
         </div>
+        <!-- Motor HTML5 Integrado -->
         <audio id="audio-nativo"></audio>
     </div>
 
@@ -191,8 +192,10 @@
         </div>
     </nav>
 
+    <!-- === ARQUITECTURA DE DATOS === -->
     <script>
-        const BACKEND_URL = "https://famimusic.onrender.com";
+        // ¡Magia aquí! Ahora la app usa dinámicamente la URL de Render para buscar el backend
+        const BACKEND_URL = window.location.origin;
 
         const gradientesApple = [
             "linear-gradient(135deg, #fa233b, #d91c5c)", "linear-gradient(135deg, #5e17eb, #9155fd)",
@@ -260,7 +263,7 @@
             } else if (tipo === 'lista') {
                 return `<div class="fila-lista" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'"><div class="textos-lista"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div></div>`;
             } else {
-                return `<div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Music&background=1c1c1e&color=fff'"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div>`;
+                return `<div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Music&background=1c1c1e&color=fff'"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div></div>`;
             }
         }
 
@@ -313,7 +316,6 @@
             cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
         }
 
-        // === CEREBRO TRANSMISOR: CONEXIÓN DIRECTA CON RENDER ===
         async function iniciarPista(indice, idContenedor) {
             playlistActual = memoriasInicio[idContenedor];
             indiceActual = indice;
@@ -334,21 +336,18 @@
             guardarEnHistorial(pista);
             abrirReproductor();
 
-            // La URL ahora apunta 100% a tu servidor de Render, sin intermediarios web
             const streamUrl = `${BACKEND_URL}/stream/${pista.id}`;
 
             document.getElementById('titulo-actual').innerText = titulo;
             document.getElementById('mini-title').innerText = titulo;
 
-            // Le inyectamos el canal de Render directamente al motor HTML5 de Apple
             audioEl.src = streamUrl;
-            audioEl.load(); // Fuerza al iPhone a precargar los metadatos del flujo
+            audioEl.load(); 
             
             audioEl.play().catch(err => {
-                console.log("Interrupción de reproducción controlada.");
+                console.log("Interrupción controlada.");
             });
 
-            // Integración nativa a la pantalla de bloqueo (Lock Screen)
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: titulo, 
