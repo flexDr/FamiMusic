@@ -1,14 +1,13 @@
-import random
 import httpx
-import urllib.parse
 import asyncio
 import yt_dlp
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 
-app = FastAPI(title="FamiMusic V6 - Motor Nativo")
+app = FastAPI(title="FamiMusic V7 - 100% Independiente")
 
+# Permitir conexiones seguras desde tu PWA
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,58 +16,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Nodos solo para búsqueda (son rápidos para encontrar texto, no para extraer audio pesado)
-NODOS_POOL = [
-    {"url": "https://pipedapi.kavin.rocks"},
-    {"url": "https://pipedapi.syncpundit.io"},
-    {"url": "https://pipedapi.smnz.de"},
-    {"url": "https://pipedapi.tokhmi.xyz"},
-    {"url": "https://piapi.pussthecat.org"}
-]
-
 @app.get("/")
 def cargar_interfaz():
     return FileResponse("templates/index.html")
 
 @app.get("/status")
 def check_status():
-    return {"status": "ONLINE", "motor_extraccion": "yt-dlp Activo"}
+    return {"status": "ONLINE", "motor": "yt-dlp Autonomo"}
 
+# BÚSQUEDA NATIVA (Sin usar Piped, directamente con yt-dlp)
 @app.get("/search/{query}")
 async def buscar_musica(query: str):
-    nodos_prueba = list(NODOS_POOL)
-    random.shuffle(nodos_prueba) 
-    
-    async with httpx.AsyncClient(timeout=4.0) as client:
-        for nodo in nodos_prueba:
-            try:
-                query_codificado = urllib.parse.quote(query)
-                url = f"{nodo['url']}/search?q={query_codificado}&filter=videos"
-                res = await client.get(url)
-                
-                if res.status_code == 200:
-                    data = res.json()
-                    resultados = []
-                    for item in data.get("items", []):
-                        video_url = item.get("url", "")
-                        video_id = video_url.replace("/watch?v=", "")
-                        if video_id and item.get("type") == "stream":
-                            resultados.append({
-                                "id": video_id,
-                                "title": item.get("title", "Desconocido"),
-                                "thumb": item.get("thumbnail", ""),
-                                "uploader": item.get("uploaderName", "Fami Music")
-                            })
-                    if len(resultados) > 0:
-                        return resultados
-            except Exception:
-                continue 
-                
-    raise HTTPException(status_code=503, detail="Túneles ocupados, intenta de nuevo.")
+    def buscar_en_yt():
+        opciones = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'extract_flat': True, # Fundamental para que la búsqueda sea instantánea
+            'nocheckcertificate': True
+        }
+        with yt_dlp.YoutubeDL(opciones) as ydl:
+            # ytsearch15 extrae los primeros 15 resultados rápido
+            return ydl.extract_info(f"ytsearch15:{query}", download=False)
 
+    try:
+        # Ejecutamos en un hilo separado para no bloquear el servidor
+        info = await asyncio.to_thread(buscar_en_yt)
+        resultados_crudos = info.get('entries', [])
+        
+        resultados = []
+        for item in resultados_crudos:
+            if item.get("id"):
+                # Forzamos la creación de la miniatura oficial
+                thumb_url = f"https://i.ytimg.com/vi/{item.get('id')}/hqdefault.jpg"
+                resultados.append({
+                    "id": item.get("id"),
+                    "title": item.get("title", "Desconocido"),
+                    "thumb": thumb_url,
+                    "uploader": item.get("uploader", item.get("channel", "Fami Music"))
+                })
+                
+        if len(resultados) > 0:
+            return resultados
+        raise HTTPException(status_code=404, detail="No se encontraron temas")
+    except Exception as e:
+        print(f"Error de búsqueda: {e}")
+        raise HTTPException(status_code=503, detail="Motor de búsqueda en reinicio")
+
+# TRANSMISIÓN NATIVA
 @app.get("/stream/{video_id}")
 async def tunel_de_transmision(video_id: str):
-    # === MAGIA: Render extrae el audio directamente sin usar intermediarios ===
     def extraer_url_directa():
         opciones = {
             'format': 'm4a/bestaudio/best',
@@ -80,13 +76,12 @@ async def tunel_de_transmision(video_id: str):
             return info['url']
 
     try:
-        # Ejecutamos la extracción en un proceso seguro
         audio_url = await asyncio.to_thread(extraer_url_directa)
     except Exception as e:
-        print(f"Error en yt-dlp: {e}")
+        print(f"Fallo en desencriptación: {e}")
         raise HTTPException(status_code=500, detail="Fallo al desencriptar el audio")
 
-    # Infiltración y envío al iPhone
+    # Retransmisión en vivo al iPhone
     async def generador_de_bytes():
         async with httpx.AsyncClient() as client:
             headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15"}
