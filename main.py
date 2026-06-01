@@ -1,13 +1,13 @@
 import httpx
 import asyncio
 import yt_dlp
+import urllib.parse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 
-app = FastAPI(title="FamiMusic V7 - 100% Independiente")
+app = FastAPI(title="FamiMusic V8 - Deezer Hybrid Engine")
 
-# Permitir conexiones seguras desde tu PWA
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,66 +22,75 @@ def cargar_interfaz():
 
 @app.get("/status")
 def check_status():
-    return {"status": "ONLINE", "motor": "yt-dlp Autonomo"}
+    return {"status": "ONLINE", "motor_busqueda": "Deezer API", "motor_audio": "yt-dlp"}
 
-# BÚSQUEDA NATIVA (Sin usar Piped, directamente con yt-dlp)
+# === EL CEREBRO: BÚSQUEDA INSTANTÁNEA CON DEEZER ===
 @app.get("/search/{query}")
 async def buscar_musica(query: str):
-    def buscar_en_yt():
-        opciones = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'extract_flat': True, # Fundamental para que la búsqueda sea instantánea
-            'nocheckcertificate': True
-        }
-        with yt_dlp.YoutubeDL(opciones) as ydl:
-            # ytsearch15 extrae los primeros 15 resultados rápido
-            return ydl.extract_info(f"ytsearch15:{query}", download=False)
-
-    try:
-        # Ejecutamos en un hilo separado para no bloquear el servidor
-        info = await asyncio.to_thread(buscar_en_yt)
-        resultados_crudos = info.get('entries', [])
-        
-        resultados = []
-        for item in resultados_crudos:
-            if item.get("id"):
-                # Forzamos la creación de la miniatura oficial
-                thumb_url = f"https://i.ytimg.com/vi/{item.get('id')}/hqdefault.jpg"
-                resultados.append({
-                    "id": item.get("id"),
-                    "title": item.get("title", "Desconocido"),
-                    "thumb": thumb_url,
-                    "uploader": item.get("uploader", item.get("channel", "Fami Music"))
-                })
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            # Usamos la API oficial y abierta de Deezer (Cero bloqueos, velocidad extrema)
+            query_limpio = urllib.parse.quote(query)
+            res = await client.get(f"https://api.deezer.com/search?q={query_limpio}&limit=15")
+            
+            if res.status_code == 200:
+                data = res.json()
+                resultados = []
                 
-        if len(resultados) > 0:
-            return resultados
-        raise HTTPException(status_code=404, detail="No se encontraron temas")
-    except Exception as e:
-        print(f"Error de búsqueda: {e}")
-        raise HTTPException(status_code=503, detail="Motor de búsqueda en reinicio")
+                for item in data.get("data", []):
+                    resultados.append({
+                        "id": str(item["id"]), # Guardamos el ID oficial de Deezer
+                        "title": item["title"],
+                        "thumb": item["album"]["cover_xl"], # Portada en altísima calidad
+                        "uploader": item["artist"]["name"]
+                    })
+                
+                if len(resultados) > 0:
+                    return resultados
+                raise HTTPException(status_code=404, detail="No se encontró música")
+        except Exception as e:
+            print(f"Error en Deezer API: {e}")
+            raise HTTPException(status_code=503, detail="Error de conexión con el catálogo")
 
-# TRANSMISIÓN NATIVA
-@app.get("/stream/{video_id}")
-async def tunel_de_transmision(video_id: str):
-    def extraer_url_directa():
+# === EL MÚSCULO: EXTRACCIÓN DE AUDIO INVISIBLE ===
+@app.get("/stream/{deezer_id}")
+async def tunel_de_transmision(deezer_id: str):
+    
+    # 1. Le preguntamos a Deezer cómo se llama la canción exactamente
+    async with httpx.AsyncClient() as client:
+        res = await client.get(f"https://api.deezer.com/track/{deezer_id}")
+        if res.status_code != 200:
+            raise HTTPException(status_code=404, detail="Track no encontrado en el catálogo")
+        
+        track_data = res.json()
+        titulo = track_data.get("title", "")
+        artista = track_data.get("artist", {}).get("name", "")
+        busqueda_exacta = f"{titulo} {artista} audio"
+
+    # 2. Cazamos el audio con yt-dlp usando la información perfecta de Deezer
+    def extraer_audio_oculto():
         opciones = {
             'format': 'm4a/bestaudio/best',
             'quiet': True,
+            'extract_flat': False,
             'nocheckcertificate': True
         }
         with yt_dlp.YoutubeDL(opciones) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            return info['url']
+            # ytsearch1 busca el primer resultado que coincida y extrae el link de una vez
+            info = ydl.extract_info(f"ytsearch1:{busqueda_exacta}", download=False)
+            if 'entries' in info and len(info['entries']) > 0:
+                return info['entries'][0]['url']
+            return None
 
     try:
-        audio_url = await asyncio.to_thread(extraer_url_directa)
+        audio_url = await asyncio.to_thread(extraer_audio_oculto)
+        if not audio_url:
+            raise Exception("No se pudo generar el túnel de audio")
     except Exception as e:
-        print(f"Fallo en desencriptación: {e}")
-        raise HTTPException(status_code=500, detail="Fallo al desencriptar el audio")
+        print(f"Fallo en la extracción del músculo: {e}")
+        raise HTTPException(status_code=500, detail="Fallo al desencriptar el audio final")
 
-    # Retransmisión en vivo al iPhone
+    # 3. Retransmisión en vivo al iPhone
     async def generador_de_bytes():
         async with httpx.AsyncClient() as client:
             headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15"}
