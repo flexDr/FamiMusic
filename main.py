@@ -26,9 +26,8 @@ BACKUP_SONGS = [
 ]
 
 @app.get("/")
-def home():
-    return {"status": "ok", "message": "FamiMusic backend"}
-
+def cargar_interfaz():
+    return FileResponse("templates/index.html")
 @app.get("/search/{q}")
 def search(q: str):
     if not YOUTUBE_API_KEY:
