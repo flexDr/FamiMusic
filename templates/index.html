@@ -325,10 +325,11 @@
             let artista = pista.uploader || "Fami Music"; 
             let titulo = tituloRaw;
 
-            document.getElementById('titulo-actual').innerText = "Abriendo túnel seguro...";
+            // 1. Cambiamos la interfaz a modo de "Descarga Profunda"
+            document.getElementById('titulo-actual').innerText = "Cargando en memoria...";
             document.getElementById('artista-actual').innerText = artista;
             document.getElementById('arte-cancion').src = pista.thumb;
-            document.getElementById('mini-title').innerText = "Conectando...";
+            document.getElementById('mini-title').innerText = "Cargando...";
             document.getElementById('mini-artist').innerText = artista;
             document.getElementById('mini-img').src = pista.thumb;
             
@@ -338,26 +339,42 @@
 
             const streamUrl = `${BACKEND_URL}/stream/${pista.id}`;
 
-            document.getElementById('titulo-actual').innerText = titulo;
-            document.getElementById('mini-title').innerText = titulo;
+            try {
+                // === MAGIA DE CARGA PROFUNDA (DEEP BUFFERING) ===
+                // En lugar de hacer streaming directo, obligamos a Safari a tragarse el archivo entero primero
+                const respuesta = await fetch(streamUrl);
+                if (!respuesta.ok) throw new Error("Túnel bloqueado");
+                
+                // Convertimos la música en un bloque de datos crudos (Blob) en la RAM del iPhone
+                const blob = await respuesta.blob();
+                
+                // Creamos una URL falsa interna dentro del iPhone para reproducir el Blob
+                const urlLocal = URL.createObjectURL(blob);
 
-            audioEl.src = streamUrl;
-            audioEl.load(); 
-            
-            audioEl.play().catch(err => {
-                console.log("Interrupción controlada.");
-            });
+                // Actualizamos la UI ya que la descarga terminó
+                document.getElementById('titulo-actual').innerText = titulo;
+                document.getElementById('mini-title').innerText = titulo;
 
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: titulo, 
-                    artist: artista,
-                    artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
-                });
-                navigator.mediaSession.setActionHandler('play', alternarPlay);
-                navigator.mediaSession.setActionHandler('pause', alternarPlay);
-                navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
-                navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
+                // Le inyectamos el archivo local al reproductor
+                audioEl.src = urlLocal;
+                audioEl.load(); 
+                audioEl.play().catch(err => console.log("Interrupción controlada:", err));
+
+                // Metadatos para la pantalla de bloqueo
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: titulo, 
+                        artist: artista,
+                        artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
+                    });
+                    navigator.mediaSession.setActionHandler('play', alternarPlay);
+                    navigator.mediaSession.setActionHandler('pause', alternarPlay);
+                    navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
+                    navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('titulo-actual').innerText = "Error en el túnel, intenta de nuevo";
             }
         }
 
