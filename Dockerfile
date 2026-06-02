@@ -1,9 +1,10 @@
-# Usamos un sistema operativo ligero con Node.js preinstalado
-FROM node:18-bullseye-slim
+# Usamos un sistema operativo más moderno (Bookworm) que ya trae Python 3.11
+FROM node:20-bookworm-slim
 
-# Instalamos Python, FFmpeg y herramientas de red en el sistema
+# Instalamos Python 3, FFmpeg y wget
 RUN apt-get update && apt-get install -y \
     python3 \
+    python3-pip \
     ffmpeg \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -19,7 +20,7 @@ WORKDIR /app
 COPY package.json .
 RUN npm install
 
-# Copiamos todo el proyecto (incluyendo tu static, templates y cookies.txt)
+# Copiamos todo el proyecto (tu PWA, cookies y servidor)
 COPY . .
 
 # Comando de arranque
