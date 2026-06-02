@@ -48,10 +48,11 @@ async def stream_audio(request: Request, url: str):
         ytdl_process = None
         ffmpeg_process = None
         try:
-            # Comando de extracción optimizado (Sin disfraz, directo al audio)
+            # Comando de extracción blindado (Cookies + Motor Android)
             ytdl_cmd = [
                 'yt-dlp', '-o', '-', '-f', 'bestaudio/best', '--no-playlist', '--no-cache-dir',
                 '--cookies', 'cookies.txt',
+                '--extractor-args', 'youtube:player_client=android',  # <--- EL ROMPE-BLOQUEOS DEFINITIVO
                 url
             ]
             # Comando de conversión a MP3
