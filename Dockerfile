@@ -1,6 +1,6 @@
 FROM python:3.10-slim
-# Instalar FFmpeg a nivel de sistema operativo
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+# Instalamos FFmpeg para el audio y Node.js para que yt-dlp resuelva los acertijos de YouTube
+RUN apt-get update && apt-get install -y ffmpeg nodejs && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
