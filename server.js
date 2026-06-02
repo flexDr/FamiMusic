@@ -36,18 +36,16 @@ app.get('/api/stream', (req, res) => {
         'Transfer-Encoding': 'chunked'
     });
 
-    // Tu configuración óptima de yt-dlp con cookies y cliente ios/web
-    const ytdl = spawn('yt-dlp', [
-        '-o', '-',
-        '-f', 'ba',
+   const ytdl = spawn('yt-dlp', [
+        '-o', '-', 
+        '-f', 'ba', 
         '--no-playlist',
         '--no-cache-dir',
         '--cookies', './cookies.txt',
-        '--extractor-args', 'youtube:player_client=ios,web',
-        '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        '--extractor-args', 'youtube:player_client=web', // <--- SOLO WEB
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', // Disfraz de PC estándar
         videoUrl
     ]);
-
     // FFmpeg empaquetando un MP3 limpio en vuelo
     const ffmpeg = spawn('ffmpeg', [
         '-i', 'pipe:0',
