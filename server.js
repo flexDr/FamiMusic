@@ -1,39 +1,64 @@
 const express = require('express');
-const { spawn } = require('child_process');
-const path = require('path');
+const axios = require('axios'); // Asegúrate de hacer: npm install axios
 const app = express();
 
-// Rutas para servir tu interfaz web y la PWA
-app.use('/static', express.static(path.join(__dirname, 'static')));
+// Lista de servidores públicos de Invidious estables
+const INVIDIOUS_INSTANCES = [
+    'https://nerdvpn.de',
+    'https://yewtu.be',
+    'https://puffyan.us',
+    'https://tux.digital'
+];
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
-});
-
-app.get('/sw.js', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'sw.js'));
-});
-
-app.get('/manifest.json', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'manifest.json'));
-});
-
-// Ruta maestra de extracción de audio
-app.get('/api/stream', (req, res) => {
+app.get('/api/stream', async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) return res.status(400).send('Falta la URL');
 
-    // Forzar limpieza si Safari o el iPhone cortan la conexión
-    res.on('close', () => {
-        destroyProcesses();
-    });
+    // Extraer el ID del video (ejemplo: ajSprgoe0WI)
+    const videoIdMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?\S*v=))([\w-]{11})/);
+    if (!videoIdMatch) return res.status(400).send('URL de YouTube inválida');
+    const videoId = videoIdMatch[1];
 
-    // Cabeceras anti-bloqueo para que Safari acepte el flujo en vivo
+    // Configurar cabeceras de streaming para Safari y PWAs
     res.writeHead(200, {
         'Content-Type': 'audio/mpeg',
         'Accept-Ranges': 'bytes',
         'Connection': 'keep-alive',
         'Transfer-Encoding': 'chunked'
+    });
+
+    // Intentar obtener el flujo de audio desde las instancias de Invidious
+    for (const instance of INVIDIOUS_INSTANCES) {
+        try {
+            // Consultamos la API de la instancia para obtener las URLs directas de los archivos
+            const response = await axios.get(`${instance}/api/v1/videos/${videoId}`);
+            const adaptiveFormats = response.data.adaptiveFormats;
+
+            // Buscamos una pista que sea solo audio (audio/webm o audio/mp4)
+            const audioTrack = adaptiveFormats.find(format => format.type.startsWith('audio/'));
+
+            if (audioTrack && audioTrack.url) {
+                // Hacemos un puente (Pipe) del audio directamente hacia Safari/Tu PWA
+                const audioStream = await axios({
+                    method: 'get',
+                    url: audioTrack.url,
+                    responseType: 'stream'
+                });
+
+                audioStream.data.pipe(res);
+                return; // Éxito, salimos de la función
+            }
+        } catch (error) {
+            console.warn(`Instancia ${instance} falló, intentando la siguiente...`);
+        }
+    }
+
+    // Si todas las instancias fallan
+    res.status(502).send('No se pudo extraer el audio en este momento.');
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Motor rugiendo en el puerto ${PORT}`));
     });
 
    const ytdl = spawn('yt-dlp', [
