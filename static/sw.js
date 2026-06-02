@@ -1,4 +1,4 @@
-const CACHE_NAME = 'musicapi_cache_v1';
+const CACHE_NAME = 'musicapi_cache_v2';
 const URLS_A_CACHEAR = [
   const URLS_A_CACHEAR = [
   '/',
