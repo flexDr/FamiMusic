@@ -2,419 +2,100 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fami Music</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusicAPI Premium</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#09090b">
+    
     <style>
-        /* === VARIABLES Y CONFIGURACIÓN === */
-        :root { --text: #ffffff; --text-muted: #ebebf599; --accent: #fa233b; --tab-bg: rgba(0, 0, 0, 0.55); }
-        
-        body { margin: 0; padding: 0; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; padding-bottom: 160px; background: #000; -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none; }
-        body.bloqueado { overflow: hidden; touch-action: none; }
-
-        /* === FONDO DINÁMICO AURORA === */
-        .aurora-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; background: #000; }
-        .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.45; animation: auroraAnim 20s infinite alternate ease-in-out; }
-        .blob1 { width: 380px; height: 380px; background: #fa233b; top: -15%; left: -10%; }
-        .blob2 { width: 480px; height: 480px; background: #5e17eb; bottom: -20%; right: -10%; animation-delay: -7s; }
-        @keyframes auroraAnim { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(50px, 60px) scale(1.15); } }
-
-        /* === HEADERS Y VISTAS === */
-        header { padding: 60px 20px 15px; font-size: 34px; font-weight: 800; position: sticky; top: 0; z-index: 10; letter-spacing: -0.5px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(40px) saturate(210%); -webkit-backdrop-filter: blur(40px) saturate(210%); border-bottom: 0.5px solid rgba(255,255,255,0.08); }
-        .vista { display: none; }
-        .vista.activa { display: block; animation: vistaFadeIn 0.35s cubic-bezier(0.25, 1, 0.5, 1); }
-        @keyframes vistaFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* === SECCIONES Y CARRUSELES === */
-        .seccion { margin-top: 30px; }
-        .titulo-seccion { font-size: 22px; font-weight: 700; margin: 0 20px 14px; padding-bottom: 6px; display: flex; align-items: center; letter-spacing: -0.2px; }
-        .titulo-seccion::after { content: '›'; margin-left: 6px; color: var(--text-muted); font-size: 24px; font-weight: 300; }
-        .carrusel { display: flex; overflow-x: auto; padding: 0 20px 10px; gap: 16px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-        .carrusel::-webkit-scrollbar { display: none; }
-
-        /* === TARJETAS === */
-        .tarjeta-destacada { width: 300px; height: 380px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 28px rgba(0,0,0,0.55); }
-        .tarjeta-destacada img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-        .tarjeta-destacada:active img { transform: scale(1.03); }
-        .overlay-destacada { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.85) 100%); }
-        .tag-apple { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.85); letter-spacing: 1px; background: rgba(255, 255, 255, 0.15); padding: 4px 10px; border-radius: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-        .textos-destacados { position: absolute; bottom: 22px; left: 18px; right: 18px; }
-        .titulo-destacado { font-size: 12px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; font-weight: 600; }
-        .subtitulo-destacado { font-size: 23px; font-weight: 700; color: #fff; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-        .tarjeta-mix { width: 160px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .mix-fondo { width: 160px; height: 160px; border-radius: 14px; position: relative; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,0.45); }
-        .circulo-thumb { position: absolute; border-radius: 50%; object-fit: cover; box-shadow: 0 8px 18px rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.12); }
-        .circulo-1 { width: 92px; height: 92px; top: 14%; left: 8%; z-index: 2; }
-        .circulo-2 { width: 68px; height: 68px; bottom: 12%; right: 8%; z-index: 3; }
-        .circulo-3 { width: 48px; height: 48px; bottom: 6%; left: 36%; z-index: 4; }
-        
-        .tarjeta-normal { width: 145px; flex-shrink: 0; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; }
-        .tarjeta-normal img { width: 145px; height: 145px; border-radius: 12px; object-fit: cover; box-shadow: 0 8px 20px rgba(0,0,0,0.45); }
-        .titulo-tarjeta { font-size: 14px; font-weight: 500; margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-        .artista-tarjeta { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* === BÚSQUEDA Y LISTAS === */
-        .lista-resultados { display: flex; flex-direction: column; padding: 0 20px; }
-        .fila-lista { width: 100%; display: flex; flex-direction: row; align-items: center; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.07); cursor: pointer; }
-        .fila-lista img { width: 58px; height: 58px; border-radius: 8px; margin-right: 16px; object-fit: cover; }
-        .textos-lista { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-        .mensaje-carga { padding: 40px 20px; color: var(--text-muted); font-size: 15px; text-align: center; font-weight: 500; }
-
-        /* === MINI REPRODUCTOR === */
-        #mini-player { display: none; position: fixed; bottom: 100px; left: 16px; right: 16px; height: 64px; border-radius: 14px; align-items: center; padding: 0 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); z-index: 90; cursor: pointer; border: 0.5px solid rgba(255,255,255,0.12); background: rgba(28, 28, 30, 0.72); backdrop-filter: blur(30px) saturate(210%); -webkit-backdrop-filter: blur(30px) saturate(210%); }
-        #mini-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; margin-right: 14px; }
-        .mini-info { flex: 1; overflow: hidden; }
-        .mini-titulo { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-artista { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-        .mini-btn { background: none; border: none; color: #fff; display: flex; justify-content: center; align-items: center; cursor: pointer; padding: 6px; }
-
-        /* === UI DEL REPRODUCTOR (PANTALLA COMPLETA) === */
-        #reproductor-ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 10, 12, 0.82); backdrop-filter: blur(60px); -webkit-backdrop-filter: blur(60px); transform: translateY(100%); transition: transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; padding: 50px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; overscroll-behavior: none; }
-        #reproductor-ui.activo { transform: translateY(0); }
-        .btn-cerrar { width: 36px; height: 5px; background: rgba(255,255,255,0.35); border-radius: 10px; margin-bottom: 40px; cursor: pointer; flex-shrink: 0; }
-        .media-box { width: 100%; max-width: 310px; aspect-ratio: 1/1; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.65); margin-bottom: 45px; position: relative; transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1); flex-shrink: 0; }
-        .media-box.pausado { transform: scale(0.86); box-shadow: 0 10px 30px rgba(0,0,0,0.5); } 
-        #arte-cancion { width: 100%; height: 100%; object-fit: cover; }
-        .info-pista { width: 100%; max-width: 310px; margin-bottom: 25px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
-        .nombre-pista { font-size: 22px; font-weight: 700; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.3px; }
-        .nombre-artista { font-size: 19px; color: var(--accent); font-weight: 500; margin-top: 4px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .controles-wraper { width: 100%; max-width: 310px; }
-        .tiempos { display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.45); font-weight: 600; }
-        input[type="range"] { width: 100%; margin: 12px 0 22px; appearance: none; background: rgba(255,255,255,0.15); height: 4px; border-radius: 2px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { appearance: none; width: 10px; height: 10px; background: #fff; border-radius: 50%; transform: scale(1.2); }
-        
-        .controles-main { display: flex; justify-content: center; align-items: center; gap: 45px; margin-bottom: 20px; }
-        .btn-icono { background: none; border: none; color: #fff; cursor: pointer; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; padding: 0; }
-        .btn-icono:active { opacity: 0.4; }
-        .btn-play { width: 68px; height: 68px; border-radius: 50%; background: #fff; color: #000; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s; padding: 0; box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
-        .btn-play:active { transform: scale(0.92); }
-
-        /* === TAB BAR INFERIOR === */
-        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 88px; background: var(--tab-bg); backdrop-filter: blur(35px) saturate(210%); -webkit-backdrop-filter: blur(35px) saturate(210%); display: flex; justify-content: space-around; padding-top: 8px; border-top: 0.5px solid rgba(255,255,255,0.08); z-index: 80; padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
-        .tab { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); cursor: pointer; width: 33%; font-size: 10px; font-weight: 600; letter-spacing: -0.1px; }
-        .tab svg { width: 25px; height: 25px; margin-bottom: 3px; fill: currentColor; }
-        .tab.activo { color: var(--accent); }
-        .search-box { padding: 0 20px 12px; }
-        .search-box input { width: 100%; background: rgba(255,255,255,0.11); border: none; padding: 12px 16px; border-radius: 11px; color: white; font-size: 16px; outline: none; box-sizing: border-box; }
-        .search-box input::placeholder { color: rgba(255,255,255,0.45); }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #09090b;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h1 {
+            color: #8b5cf6;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #27272a;
+            background: #18181b;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #8b5cf6;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            transition: transform 0.1s;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #reproductor {
+            width: 100%;
+            margin-top: 30px;
+            border-radius: 30px;
+            outline: none;
+        }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>MusicAPI</h1>
+        
+        <input type="text" id="inputBusqueda" placeholder="Pega un enlace de YouTube aquí...">
+        <button onclick="iniciarReproduccion()">Reproducir Canción</button>
 
-    <div class="aurora-bg"><div class="blob blob1"></div><div class="blob blob2"></div></div>
-
-    <div id="vista-inicio" class="vista activa">
-        <header>Escuchar</header>
-        <div class="seccion">
-            <div class="titulo-seccion">Sugerencias destacadas</div>
-            <div class="carrusel" id="fila-destacadas"></div>
-        </div>
-        <div class="seccion">
-            <div class="titulo-seccion">Escuchado recientemente</div>
-            <div class="carrusel" id="fila-recientes"></div>
-        </div>
-        <div class="seccion">
-            <div class="titulo-seccion">Puro Dembow</div>
-            <div class="carrusel" id="fila-dembow"></div>
-        </div>
+        <audio id="reproductor" controls></audio>
     </div>
 
-    <div id="vista-buscar" class="vista">
-        <header>Buscar</header>
-        <div class="search-box">
-            <input type="text" id="input-buscador" placeholder="Artistas, canciones o mixes...">
-        </div>
-        <div class="lista-resultados" id="grid-buscar">
-            <div class="mensaje-carga">Encuentra música en tu red privada.</div>
-        </div>
-    </div>
-
-    <div id="vista-biblioteca" class="vista">
-        <header>Biblioteca</header>
-        <div class="seccion">
-            <div class="titulo-seccion">Recientemente añadidos</div>
-            <div class="lista-resultados" id="grid-biblioteca"></div>
-        </div>
-    </div>
-
-    <div id="mini-player" onclick="abrirReproductor()">
-        <img src="" id="mini-img">
-        <div class="mini-info">
-            <div class="mini-titulo" id="mini-title">...</div>
-            <div class="mini-artista" id="mini-artist">Fami Music</div>
-        </div>
-        <button class="mini-btn" id="mini-play-btn" onclick="alternarPlayFiltro(event)">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-    </div>
-
-    <div id="reproductor-ui">
-        <div class="btn-cerrar" onclick="cerrarReproductor()"></div>
-        <div class="media-box pausado" id="media-box-anim">
-            <img id="arte-cancion" src="" alt="Cover Art">
-        </div>
-        <div class="info-pista">
-            <div class="nombre-pista" id="titulo-actual">Selecciona un tema</div>
-            <div class="nombre-artista" id="artista-actual">Fami Music</div>
-        </div>
-        <div class="controles-wraper">
-            <input type="range" id="barra-progreso" value="0" min="0" max="100">
-            <div class="tiempos">
-                <span id="tiempo-actual">0:00</span>
-                <span id="tiempo-restante">-0:00</span>
-            </div>
-        </div>
-        <div class="controles-main">
-            <button class="btn-icono" onclick="pistaAnterior()">
-                <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-            </button>
-            <button class="btn-play" id="btn-play" onclick="alternarPlay()">
-                <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-            <button class="btn-icono" onclick="pistaSiguiente()">
-                <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
-        </div>
-        <!-- Motor HTML5 Integrado -->
-        <audio id="audio-nativo"></audio>
-    </div>
-
-    <nav class="tab-bar">
-        <div class="tab activo" onclick="cambiarTab('inicio', this)">
-            <svg viewBox="0 0 24 24"><path d="M12 3L4 9v12h5v-7h6v7h5V9z"/></svg><span>Escuchar</span>
-        </div>
-        <div class="tab" onclick="cambiarTab('buscar', this)">
-            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span>Buscar</span>
-        </div>
-        <div class="tab" onclick="cambiarTab('biblioteca', this)">
-            <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg><span>Biblioteca</span>
-        </div>
-    </nav>
-
-    <!-- === ARQUITECTURA DE DATOS === -->
     <script>
-        // ¡Magia aquí! Ahora la app usa dinámicamente la URL de Render para buscar el backend
-        const BACKEND_URL = window.location.origin;
-
-        const gradientesApple = [
-            "linear-gradient(135deg, #fa233b, #d91c5c)", "linear-gradient(135deg, #5e17eb, #9155fd)",
-            "linear-gradient(135deg, #ff9500, #ff5e3a)", "linear-gradient(135deg, #00c6ff, #0072ff)",
-            "linear-gradient(135deg, #1d976c, #93f9b9)"
-        ];
-
-        let memoriasInicio = { "fila-destacadas": [], "fila-recientes": [], "fila-dembow": [], "grid-buscar": [], "grid-biblioteca": [] };
-        let playlistActual = [];
-        let indiceActual = 0;
-
-        const audioEl = document.getElementById('audio-nativo');
-        const uiRep = document.getElementById('reproductor-ui');
-        const btnPlay = document.getElementById('btn-play');
-        const barra = document.getElementById('barra-progreso');
-        const miniPlayer = document.getElementById('mini-player');
-        const btnMiniPlay = document.getElementById('mini-play-btn');
-        const cajaMedia = document.getElementById('media-box-anim');
-
-        const iconPlay = `<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-        const iconPause = `<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
-        const iconMiniPlay = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-        const iconMiniPause = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
-
-        audioEl.addEventListener('play', () => actualizarUIPlay(true));
-        audioEl.addEventListener('pause', () => actualizarUIPlay(false));
-        audioEl.addEventListener('ended', pistaSiguiente);
-        audioEl.addEventListener('timeupdate', actualizarBarra);
-
-        function cambiarTab(idVista, tabApretado) {
-            document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
-            document.getElementById('vista-' + idVista).classList.add('activa');
-            tabApretado.classList.add('activo');
-            if(idVista === 'biblioteca') cargarBiblioteca();
-        }
-
-        window.onload = () => {
-            cargarFila("bachata dominicana exitos", "fila-destacadas", "destacada");
-            cargarHistorial();
-            cargarFila("dembow dominicano clasicos", "fila-dembow", "normal");
-        };
-
-        function decodificarHTML(html) {
-            let txt = document.createElement("textarea"); txt.innerHTML = html;
-            return txt.value.replace(/['"]/g, '').trim(); 
-        }
-
-        function crearTarjeta(cancion, index, idContenedor, tipo) {
-            let tituloRaw = cancion.title ? decodificarHTML(cancion.title) : "Mix Privado";
-            let artista = "Fami Music"; 
-            let titulo = tituloRaw;
-            
-            if (tituloRaw.includes("-")) {
-                let partes = tituloRaw.split("-");
-                artista = partes[0].trim(); 
-                titulo = partes.slice(1).join("-").trim();
-            }
-
-            if (tipo === 'destacada') {
-                return `<div class="tarjeta-destacada" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'"><div class="overlay-destacada"></div><div class="tag-apple">FAMI MUSIC</div><div class="textos-destacados"><div class="titulo-destacado">RECOMENDADO</div><div class="subtitulo-destacado">${titulo}</div></div></div>`;
-            } else if (tipo === 'mix') {
-                let grad = gradientesApple[index % gradientesApple.length];
-                return `<div class="tarjeta-mix" onclick="iniciarPista(${index}, '${idContenedor}')"><div class="mix-fondo" style="background: ${grad};"><img src="${cancion.thumb}" class="circulo-thumb circulo-1" onerror="this.style.display='none'"><img src="${cancion.thumb}" class="circulo-thumb circulo-2" onerror="this.style.display='none'"><img src="${cancion.thumb}" class="circulo-thumb circulo-3" onerror="this.style.display='none'"></div><div class="titulo-tarjeta">${artista}</div><div class="artista-tarjeta">Estación personal</div></div>`;
-            } else if (tipo === 'lista') {
-                return `<div class="fila-lista" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=FM&background=1c1c1e&color=fff'"><div class="textos-lista"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div></div>`;
+        function iniciarReproduccion() {
+            const url = document.getElementById('inputBusqueda').value;
+            if (url) {
+                // Llama a la función maestra que está en tu app.js
+                // Pasamos datos genéricos por ahora para la pantalla de bloqueo
+                reproducirCancion(url, "En reproducción", "MusicAPI", "https://cdn-icons-png.flaticon.com/512/3669/3669483.png");
             } else {
-                return `<div class="tarjeta-normal" onclick="iniciarPista(${index}, '${idContenedor}')"><img src="${cancion.thumb}" onerror="this.src='https://ui-avatars.com/api/?name=Music&background=1c1c1e&color=fff'"><div class="titulo-tarjeta">${titulo}</div><div class="artista-tarjeta">${artista}</div></div></div>`;
+                alert("Por favor, pega un enlace primero.");
             }
         }
-
-        async function cargarFila(busqueda, idContenedor, tipoUi) {
-            const contenedor = document.getElementById(idContenedor);
-            contenedor.innerHTML = '<div class="mensaje-carga">Actualizando contenido...</div>';
-            try {
-                const res = await fetch(`${BACKEND_URL}/search/${encodeURIComponent(busqueda)}`);
-                const datos = await res.json();
-                if (!datos || datos.length === 0) throw new Error("Vacío");
-                
-                memoriasInicio[idContenedor] = datos;
-                contenedor.innerHTML = datos.map((c, i) => crearTarjeta(c, i, idContenedor, tipoUi)).join('');
-            } catch (e) { 
-                contenedor.innerHTML = '<div class="mensaje-carga">Servidor privado fuera de línea.</div>'; 
-            }
-        }
-
-        let searchTimeout = null;
-        document.getElementById('input-buscador').oninput = (e) => {
-            const query = e.target.value.trim();
-            if (query.length < 2) return;
-            clearTimeout(searchTimeout);
-            document.getElementById('grid-buscar').innerHTML = '<div class="mensaje-carga">Buscando en la red...</div>';
-            searchTimeout = setTimeout(() => { cargarFila(query, 'grid-buscar', 'lista'); }, 800);
-        };
-
-        function guardarEnHistorial(cancion) {
-            let h = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
-            h = h.filter(item => item.id !== cancion.id);
-            h.unshift(cancion);
-            if(h.length > 15) h.pop();
-            localStorage.setItem('Fami_Memoria', JSON.stringify(h));
-            cargarHistorial(); 
-        }
-
-        function cargarHistorial() {
-            let historial = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
-            const cont = document.getElementById('fila-recientes');
-            if(historial.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Escucha música para generar tu estación.</div>'; return; }
-            memoriasInicio['fila-recientes'] = historial;
-            cont.innerHTML = historial.map((c, i) => crearTarjeta(c, i, 'fila-recientes', 'mix')).join('');
-        }
-
-        function cargarBiblioteca() {
-            let lib = JSON.parse(localStorage.getItem('Fami_Memoria')) || [];
-            const cont = document.getElementById('grid-biblioteca');
-            if(lib.length === 0) { cont.innerHTML = '<div class="mensaje-carga">Tu historial está vacío.</div>'; return; }
-            memoriasInicio['grid-biblioteca'] = lib;
-            cont.innerHTML = lib.map((c, i) => crearTarjeta(c, i, 'grid-biblioteca', 'lista')).join('');
-        }
-
-        async function iniciarPista(indice, idContenedor) {
-            playlistActual = memoriasInicio[idContenedor];
-            indiceActual = indice;
-            const pista = playlistActual[indiceActual];
-
-            let tituloRaw = decodificarHTML(pista.title);
-            let artista = pista.uploader || "Fami Music"; 
-            let titulo = tituloRaw;
-
-            // 1. Cambiamos la interfaz a modo de "Descarga Profunda"
-            document.getElementById('titulo-actual').innerText = "Cargando en memoria...";
-            document.getElementById('artista-actual').innerText = artista;
-            document.getElementById('arte-cancion').src = pista.thumb;
-            document.getElementById('mini-title').innerText = "Cargando...";
-            document.getElementById('mini-artist').innerText = artista;
-            document.getElementById('mini-img').src = pista.thumb;
-            
-            miniPlayer.style.display = 'flex'; 
-            guardarEnHistorial(pista);
-            abrirReproductor();
-
-            const streamUrl = `${BACKEND_URL}/stream/${pista.id}`;
-
-            try {
-                // === MAGIA DE CARGA PROFUNDA (DEEP BUFFERING) ===
-                // En lugar de hacer streaming directo, obligamos a Safari a tragarse el archivo entero primero
-                const respuesta = await fetch(streamUrl);
-                if (!respuesta.ok) throw new Error("Túnel bloqueado");
-                
-                // Convertimos la música en un bloque de datos crudos (Blob) en la RAM del iPhone
-                const blob = await respuesta.blob();
-                
-                // Creamos una URL falsa interna dentro del iPhone para reproducir el Blob
-                const urlLocal = URL.createObjectURL(blob);
-
-                // Actualizamos la UI ya que la descarga terminó
-                document.getElementById('titulo-actual').innerText = titulo;
-                document.getElementById('mini-title').innerText = titulo;
-
-                // Le inyectamos el archivo local al reproductor
-                audioEl.src = urlLocal;
-                audioEl.load(); 
-                audioEl.play().catch(err => console.log("Interrupción controlada:", err));
-
-                // Metadatos para la pantalla de bloqueo
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: titulo, 
-                        artist: artista,
-                        artwork: [{ src: pista.thumb, sizes: '512x512', type: 'image/jpeg' }]
-                    });
-                    navigator.mediaSession.setActionHandler('play', alternarPlay);
-                    navigator.mediaSession.setActionHandler('pause', alternarPlay);
-                    navigator.mediaSession.setActionHandler('nexttrack', pistaSiguiente);
-                    navigator.mediaSession.setActionHandler('previoustrack', pistaAnterior);
-                }
-            } catch (error) {
-                console.error(error);
-                document.getElementById('titulo-actual').innerText = "Error en el túnel, intenta de nuevo";
-            }
-        }
-
-        function abrirReproductor() { uiRep.classList.add('activo'); document.body.classList.add('bloqueado'); }
-        function cerrarReproductor() { uiRep.classList.remove('activo'); document.body.classList.remove('bloqueado'); }
-        function alternarPlay() { audioEl.paused ? audioEl.play() : audioEl.pause(); }
-        function alternarPlayFiltro(e) { e.stopPropagation(); alternarPlay(); }
-
-        function actualizarUIPlay(estaSonando) {
-            if (estaSonando) {
-                btnPlay.innerHTML = iconPause; btnMiniPlay.innerHTML = iconMiniPause; cajaMedia.classList.remove('pausado');
-            } else {
-                btnPlay.innerHTML = iconPlay; btnMiniPlay.innerHTML = iconMiniPlay; cajaMedia.classList.add('pausado'); 
-            }
-        }
-
-        function pistaSiguiente() {
-            memoriasInicio['playlist_actual'] = playlistActual;
-            if (indiceActual < playlistActual.length - 1) iniciarPista(indiceActual + 1, 'playlist_actual');
-            else iniciarPista(0, 'playlist_actual');
-        }
-        function pistaAnterior() {
-            memoriasInicio['playlist_actual'] = playlistActual;
-            if (indiceActual > 0) iniciarPista(indiceActual - 1, 'playlist_actual');
-        }
-
-        function formatoTiempo(segundos) {
-            if (isNaN(segundos) || !isFinite(segundos) || segundos < 0) return "0:00";
-            let min = Math.floor(segundos / 60); let sec = Math.floor(segundos % 60);
-            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-        }
-
-        function actualizarBarra() {
-            if (!audioEl.duration) return;
-            barra.max = audioEl.duration; barra.value = audioEl.currentTime;
-            document.getElementById('tiempo-actual').innerText = formatoTiempo(audioEl.currentTime);
-            document.getElementById('tiempo-restante').innerText = "-" + formatoTiempo(audioEl.duration - audioEl.currentTime);
-        }
-
-        barra.oninput = (e) => { audioEl.currentTime = e.target.value; };
     </script>
+
+    <script src="/static/app.js"></script>
 </body>
 </html>
