@@ -48,11 +48,10 @@ async def stream_audio(request: Request, url: str):
         ytdl_process = None
         ffmpeg_process = None
         try:
-            # Comando de extracción con COOKIES incluidas
+            # Comando de extracción optimizado (Sin disfraz, directo al audio)
             ytdl_cmd = [
-                'yt-dlp', '-o', '-', '-f', 'best', '--no-playlist', '--no-cache-dir',
-                '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-                '--cookies', 'cookies.txt',  # <--- ESTA ES LA LLAVE MAESTRA
+                'yt-dlp', '-o', '-', '-f', 'bestaudio/best', '--no-playlist', '--no-cache-dir',
+                '--cookies', 'cookies.txt',
                 url
             ]
             # Comando de conversión a MP3
