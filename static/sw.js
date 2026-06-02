@@ -1,7 +1,7 @@
 const CACHE_NAME = 'musicapi_cache_v1';
 const URLS_A_CACHEAR = [
+  const URLS_A_CACHEAR = [
   '/',
-  '/static/index.html',
   '/static/app.js',
   '/manifest.json'
 ];
