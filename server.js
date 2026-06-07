@@ -12,70 +12,50 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'static', 'sw.js')));
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'static', 'manifest.json')));
 
-// --- EL CEREBRO SOUNDCLOUD ---
-// Llave maestra de respaldo por si el auto-robo falla
-let scClientId = '82t6Z2y2T3kR5mRGEZtc2YmbqgL35Z2Q'; 
-
-// Función hacker: Entra a SoundCloud y se roba la llave de API actual
-async function renovarClientId() {
-    try {
-        const { data } = await axios.get('https://soundcloud.com', { timeout: 5000 });
-        const scripts = data.match(/https:\/\/a-v2\.sndcdn\.com\/assets\/[^"]+\.js/g);
-        if (scripts) {
-            for (let scriptUrl of scripts) {
-                const scriptData = await axios.get(scriptUrl, { timeout: 5000 });
-                const match = scriptData.data.match(/client_id:"([a-zA-Z0-9]{32})"/);
-                if (match) {
-                    scClientId = match[1];
-                    console.log(`[SOUNDCLOUD] Llave maestra robada con éxito: ${scClientId}`);
-                    break;
-                }
-            }
-        }
-    } catch (e) {
-        console.log("[SOUNDCLOUD] Sistema de auto-robo falló, usando llave de respaldo.");
-    }
-}
-renovarClientId(); // Ejecutamos el robo al encender el servidor
-
-// EL EXTRACTOR MAESTRO (Enganchado a tu index.html sin que tengas que cambiar nada)
+// EL EXTRACTOR COMERCIAL (Conectado a la bóveda global de JioSaavn)
 app.get('/api/get-audio', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Falta la canción' });
 
     try {
-        console.log(`[BUSCANDO EN SOUNDCLOUD] ${query}`);
-        
-        // 1. Buscamos la canción exacta en la base de datos secreta de SoundCloud
-        const searchUrl = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(query)}&client_id=${scClientId}&limit=5`;
-        const searchRes = await axios.get(searchUrl, { timeout: 8000 });
-        
-        if (!searchRes.data.collection || searchRes.data.collection.length === 0) {
-            throw new Error("No se encontró en SoundCloud");
+        // Tu iPhone le añade "audio oficial" a las búsquedas. 
+        // Se lo quitamos para buscar el nombre limpio y exacto en la base de datos comercial.
+        const cleanQuery = query.replace(/audio oficial/gi, '').trim();
+        console.log(`[BUSCANDO EN BÓVEDA COMERCIAL] ${cleanQuery}`);
+
+        // Nodos Open Source que conectan directo con la API sin bloqueos de Cloudflare
+        const saavnNodes = [
+            'https://saavn.dev/api/search/songs',
+            'https://jiosaavn-api-privatecvc2.b4a.run/search/songs'
+        ];
+
+        for (let url of saavnNodes) {
+            try {
+                // Le damos 8 segundos a Render para traer los datos
+                const searchRes = await axios.get(`${url}?query=${encodeURIComponent(cleanQuery)}`, { timeout: 8000 });
+                const data = searchRes.data;
+
+                // Verificamos que la búsqueda fue exitosa y hay resultados
+                if (data && data.success && data.data && data.data.results && data.data.results.length > 0) {
+                    const song = data.data.results[0];
+                    
+                    // Extraemos los enlaces de descarga directa
+                    if (song.downloadUrl && song.downloadUrl.length > 0) {
+                        // Agarramos la URL de mayor calidad (suele ser la última del array, ej. 320kbps)
+                        const bestAudio = song.downloadUrl[song.downloadUrl.length - 1];
+                        console.log(`[VICTORIA] Audio comercial extraído: ${song.name}`);
+                        
+                        // Enviamos el audio limpio al reproductor de tu iPhone
+                        return res.json({ url: bestAudio.url });
+                    }
+                }
+            } catch (e) {
+                console.log(`[FALLO] Nodo ${url} lento o caído. Cambiando de servidor...`);
+                continue;
+            }
         }
 
-        // 2. Filtramos para asegurarnos de que la canción no esté bloqueada por derechos de autor (Suscripciones GO+)
-        const track = searchRes.data.collection.find(t => t.policy !== 'BLOCK' && t.media && t.media.transcodings);
-        
-        if (!track) {
-            throw new Error("SoundCloud bloqueó esta canción por derechos de autor");
-        }
-
-        console.log(`[TRACK ENCONTRADO] ${track.title} de ${track.user.username}`);
-
-        // 3. Buscamos el formato de audio ideal (Progresivo = MP3 directo que tu iPhone va a reproducir como mantequilla)
-        const streams = track.media.transcodings;
-        const formatoIdeal = streams.find(s => s.format.protocol === 'progressive') || streams[0];
-
-        // 4. Rompemos la encriptación final de la URL para sacar el enlace puro
-        const streamRes = await axios.get(`${formatoIdeal.url}?client_id=${scClientId}`, { timeout: 8000 });
-        
-        if (streamRes.data && streamRes.data.url) {
-            console.log(`[VICTORIA] Audio extraído y enviado al iPhone`);
-            return res.json({ url: streamRes.data.url });
-        }
-
-        throw new Error("Fallo al desencriptar el MP3");
+        throw new Error("La canción no está disponible en este catálogo");
 
     } catch (error) {
         console.error(`[DERROTA] ${error.message}`);
@@ -84,4 +64,4 @@ app.get('/api/get-audio', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Motor SoundCloud listo en el puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Motor Comercial listo en el puerto ${PORT}`));
