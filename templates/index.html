@@ -7,196 +7,38 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#030303">
     <style>
-        /* Estilos Base - Estética YouTube Music */
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background-color: #030303; /* Negro profundo YT */
-            color: #ffffff; 
-            font-family: 'Roboto', -apple-system, sans-serif; 
-            padding-bottom: 90px; 
-        }
-
-        /* Barra de Navegación Superior */
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 15px 30px; 
-            background: #030303; 
-            position: sticky; 
-            top: 0; 
-            z-index: 100; 
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
+        body { margin: 0; padding: 0; background-color: #030303; color: #ffffff; font-family: 'Roboto', -apple-system, sans-serif; padding-bottom: 90px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #030303; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
+        .search-box { display: flex; flex: 1; max-width: 400px; background: #212121; border-radius: 8px; padding: 2px; border: 1px solid #303030; }
+        .search-box input { flex: 1; background: transparent; border: none; padding: 10px 15px; color: white; font-size: 16px; outline: none; }
+        .search-box button { background: transparent; border: none; color: #aaaaaa; padding: 0 15px; cursor: pointer; font-weight: bold; }
+        .search-box button:hover { color: #ffffff; }
         
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            letter-spacing: -0.5px;
-        }
+        .resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; padding: 30px; max-width: 1200px; margin: 0 auto; }
+        .tarjeta { background: transparent; cursor: pointer; transition: transform 0.2s; }
+        .tarjeta:hover { transform: scale(1.02); }
+        .tarjeta img { width: 100%; border-radius: 4px; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .titulo { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .artista { color: #aaaaaa; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* Barra de Búsqueda Minimalista */
-        .search-box { 
-            display: flex; 
-            flex: 1; 
-            max-width: 400px; 
-            background: #212121; /* Gris oscuro YT */
-            border-radius: 8px; 
-            padding: 2px;
-            border: 1px solid #303030;
-        }
+        .reproductor-flotante { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: #212121; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; z-index: 1000; }
+        .info-reproduccion { display: flex; align-items: center; gap: 15px; width: 30%; min-width: 200px; }
+        .info-reproduccion img { width: 40px; height: 40px; border-radius: 2px; object-fit: cover; display: none; }
+        .textos-reproductor { display: flex; flex-direction: column; }
+        .rep-titulo { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .rep-artista { font-size: 12px; color: #aaaaaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         
-        .search-box input { 
-            flex: 1; 
-            background: transparent; 
-            border: none; 
-            padding: 10px 15px; 
-            color: white; 
-            font-size: 16px; 
-            outline: none; 
-        }
-        
-        .search-box input::placeholder {
-            color: #aaaaaa;
-        }
+        .controles-audio { flex: 1; display: flex; justify-content: center; align-items: center; }
+        audio { width: 100%; max-width: 600px; height: 40px; outline: none; }
+        audio::-webkit-media-controls-panel { background-color: #212121; }
+        audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-mute-button { filter: invert(1); }
+        audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display { color: white; }
 
-        .search-box button { 
-            background: transparent; 
-            border: none; 
-            color: #aaaaaa; 
-            padding: 0 15px; 
-            cursor: pointer; 
-            font-weight: bold;
-            transition: color 0.2s;
-        }
-
-        .search-box button:hover {
-            color: #ffffff;
-        }
-
-        /* Cuadrícula de Resultados */
-        .resultados { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
-            gap: 24px; 
-            padding: 30px; 
-            max-width: 1200px; 
-            margin: 0 auto; 
-        }
-
-        .tarjeta { 
-            background: transparent; 
-            cursor: pointer; 
-            transition: transform 0.2s; 
-        }
-
-        .tarjeta:hover {
-            transform: scale(1.02);
-        }
-
-        .tarjeta img { 
-            width: 100%; 
-            border-radius: 4px; /* YT usa bordes muy sutiles */
-            aspect-ratio: 1/1; 
-            object-fit: cover; 
-            margin-bottom: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-
-        .titulo { 
-            font-weight: 500; 
-            font-size: 15px; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-            margin-bottom: 4px; 
-        }
-
-        .artista { 
-            color: #aaaaaa; 
-            font-size: 14px; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-        }
-
-        /* Reproductor Fijo Inferior (El corazón de la App) */
-        .reproductor-flotante { 
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            right: 0; 
-            height: 72px;
-            background: #212121; 
-            display: flex; 
-            align-items: center; 
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 1000;
-        }
-
-        /* Info de la pista a la izquierda */
-        .info-reproduccion { 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-            width: 30%; 
-            min-width: 200px;
-        }
-
-        .info-reproduccion img {
-            width: 40px;
-            height: 40px;
-            border-radius: 2px;
-            object-fit: cover;
-            display: none; /* Se muestra con JS al reproducir */
-        }
-
-        .textos-reproductor {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .rep-titulo { font-size: 14px; font-weight: 500; }
-        .rep-artista { font-size: 12px; color: #aaaaaa; }
-
-        /* Controles de audio en el centro */
-        .controles-audio {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        audio { 
-            width: 100%; 
-            max-width: 600px; 
-            height: 40px;
-            outline: none; 
-        }
-
-        /* Ajustes de color para el reproductor nativo (Chrome/Safari) */
-        audio::-webkit-media-controls-panel {
-            background-color: #212121;
-        }
-        audio::-webkit-media-controls-play-button,
-        audio::-webkit-media-controls-mute-button {
-            filter: invert(1);
-        }
-        audio::-webkit-media-controls-current-time-display,
-        audio::-webkit-media-controls-time-remaining-display {
-            color: white;
-        }
-
-        /* Responsividad para móviles */
         @media (max-width: 600px) {
             .header { flex-direction: column; gap: 15px; padding: 15px; }
             .search-box { max-width: 100%; width: 100%; }
-            .info-reproduccion { display: none; /* Ocultamos textos en móvil para dejar espacio al audio */ }
+            .info-reproduccion { display: none; }
         }
     </style>
 </head>
@@ -217,9 +59,6 @@
 
     <div class="resultados" id="contenedorResultados">
         <div style="grid-column: 1/-1; text-align: center; color: #aaaaaa; margin-top: 40px;">
-            <svg style="width: 64px; height: 64px; opacity: 0.5; margin-bottom: 10px;" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-            </svg>
             <h2>Explora tu música</h2>
         </div>
     </div>
@@ -240,14 +79,13 @@
     <script>
         const audio = document.getElementById('reproductor');
         const contenedorResultados = document.getElementById('contenedorResultados');
-
-        // Para actualizar el mini-reproductor
         const imgRep = document.getElementById('imgReproductor');
         const titRep = document.getElementById('tituloReproductor');
         const artRep = document.getElementById('artistaReproductor');
 
+        // Registrar Service Worker para que se pueda instalar en el iPhone
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
+            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
         async function buscarMusica() {
@@ -279,7 +117,6 @@
         }
 
         function reproducir(urlOriginal, titulo, artista, portada) {
-            // Actualizar la interfaz del reproductor inferior
             imgRep.src = portada;
             imgRep.style.display = 'block';
             titRep.textContent = titulo;
