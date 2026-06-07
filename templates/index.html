@@ -179,8 +179,15 @@
         .toast { position: fixed; bottom: calc(var(--player-h) + 14px); left: 50%; transform: translateX(-50%) translateY(12px); background: #2a2a2a; color: #fff; padding: 9px 20px; border-radius: 24px; font-size: 13px; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        /* Contenedor invisible para el reproductor de YouTube */
-        #ytPlayerContainer { position: absolute; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+        /* ===== EL TRUCO PARA ENGAÑAR A SAFARI ===== */
+        /* Hacemos que el reproductor mida 300x300 (para que Safari no lo bloquee)
+           pero lo escondemos fuera de la pantalla en la posición -9999px */
+        #ytPlayerContainer {
+            position: absolute;
+            top: -9999px; left: -9999px;
+            width: 300px; height: 300px;
+            z-index: -10;
+        }
 
         @media (max-width: 680px) {
             .header { padding: 10px 14px; gap: 12px; }
@@ -311,14 +318,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ==================== CONFIGURACIÓN YOUTUBE INVISIBLE ====================
+// ==================== CONFIGURACIÓN YOUTUBE ====================
 let ytPlayer;
 let isYtReady = false;
 let progressInterval;
 
 function onYouTubeIframeAPIReady() {
     ytPlayer = new YT.Player('ytPlayer', {
-        height: '10', width: '10', videoId: '',
+        height: '300', width: '300', videoId: '', // Tamaño real para engañar a Safari
         playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0, 'autoplay': 1 },
         events: {
             'onReady': () => { isYtReady = true; },
@@ -341,8 +348,10 @@ function onPlayerStateChange(event) {
     }
 }
 
+// Si YouTube bloquea un video (Error 150), saltamos automáticamente
 function onPlayerError(event) {
-    toast('⚠️ Error al cargar, saltando a la siguiente...');
+    console.error("YouTube bloqueó este video:", event.data);
+    toast('⚠️ VEVO bloqueó esta canción, saltando...');
     setTimeout(siguiente, 1500);
 }
 
@@ -402,7 +411,8 @@ async function cargarResultados(query) {
                 titulo: s.trackName,
                 artista: s.artistName,
                 portada: s.artworkUrl100.replace('100x100bb', '512x512bb'),
-                busqueda: `${s.artistName} ${s.trackName} audio oficial`
+                // EL TRUCO: Buscamos "letra" en lugar de "audio oficial" para esquivar a VEVO y sus bloqueos de reproducción
+                busqueda: `${s.artistName} ${s.trackName} letra`
             }));
         } else {
             grid.innerHTML = `<div class="empty-state"><h3>Sin resultados</h3><p>Intenta otro término de búsqueda</p></div>`;
@@ -433,7 +443,7 @@ function renderGrid() {
 
 function escHtml(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-// ==================== REPRODUCCIÓN (CABALLO DE TROYA INVISIBLE) ====================
+// ==================== REPRODUCCIÓN ====================
 async function reproducirIndice(i) {
     if (i < 0 || i >= cola.length) return;
     indiceActual = i;
@@ -452,5 +462,112 @@ async function reproducirIndice(i) {
     try {
         let vId = cancion.videoId;
 
-        // 1. Usamos tu servidor Render solo como radar para obtener el ID de YouTube
         if (!vId) {
+            const resRender = await fetch(`/api/search-yt?q=${encodeURIComponent(cancion.busqueda)}`);
+            if (resRender.ok) {
+                const data = await resRender.json();
+                vId = data.videoId;
+                cancion.videoId = vId; 
+            }
+        }
+
+        if (!vId) throw new Error('No se encontró el video.');
+
+        if (isYtReady) {
+            ytPlayer.loadVideoById(vId);
+            trackName.textContent = cancion.titulo;
+        } else {
+            toast('El reproductor se está inicializando, intenta en un segundo...');
+        }
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: cancion.titulo, artist: cancion.artista, album: 'FamiMusic',
+                artwork: [{ src: cancion.portada, sizes: '512x512', type: 'image/jpeg' }]
+            });
+            navigator.mediaSession.setActionHandler('previoustrack', anterior);
+            navigator.mediaSession.setActionHandler('nexttrack', siguiente);
+            navigator.mediaSession.setActionHandler('play', togglePlay);
+            navigator.mediaSession.setActionHandler('pause', togglePlay);
+        }
+
+    } catch (err) {
+        trackName.textContent = 'Error';
+        toast('⚠️ Error al buscar la canción.');
+        setTimeout(siguiente, 2000);
+    }
+}
+
+function togglePlay() {
+    if (!isYtReady) return;
+    const state = ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+}
+
+function anterior() {
+    if (indiceActual > 0) reproducirIndice(indiceActual - 1);
+    else toast('Ya estás en la primera canción');
+}
+
+function siguiente() {
+    if (indiceActual < cola.length - 1) reproducirIndice(indiceActual + 1);
+    else toast('🎵 Fin de la cola');
+}
+
+function setPlayIcon(playing) {
+    playIcon.innerHTML = playing ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+}
+
+document.getElementById('progressWrap').addEventListener('click', e => {
+    if (!isYtReady || !ytPlayer.getDuration) return;
+    const dur = ytPlayer.getDuration();
+    if (!dur) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const seekToTime = ((e.clientX - rect.left) / rect.width) * dur;
+    ytPlayer.seekTo(seekToTime, true);
+});
+
+function fmt(s) { s = Math.floor(s || 0); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+
+function toggleQueue() {
+    document.getElementById('queuePanel').classList.toggle('open');
+    document.getElementById('queueOverlay').classList.toggle('open');
+    renderQueueList();
+}
+
+function renderQueueList() {
+    const list = document.getElementById('queueList');
+    if (!cola.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px 20px">La cola está vacía</p>'; return; }
+    list.innerHTML = cola.map((s, i) => `
+        <div class="queue-item${i === indiceActual ? ' current' : ''}" onclick="reproducirIndice(${i}); if(window.innerWidth < 680) toggleQueue()">
+            <span class="queue-num">${i === indiceActual ? '▶' : i+1}</span>
+            <img src="${s.portada}" alt="" loading="lazy">
+            <div class="qi-texts"><div class="qi-title">${escHtml(s.titulo)}</div><div class="qi-artist">${escHtml(s.artista)}</div></div>
+        </div>
+    `).join('');
+    const cur = list.querySelector('.current');
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+}
+
+let toastTimer;
+function toast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function cargarTrending(chipElement = null) {
+    if (chipElement) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chipElement.classList.add('active');
+        document.getElementById('searchInput').value = '';
+        document.getElementById('sectionTitle').textContent = chipElement.textContent;
+    }
+    const terminos = ['hits 2026', 'top 50 global', 'éxitos virales', 'lo mas escuchado', 'top latino 2026', 'tendencias globales', 'pop hits 2026'];
+    cargarResultados(terminos[Math.floor(Math.random() * terminos.length)]);
+}
+
+cargarTrending();
+</script>
+</body>
+</html>
