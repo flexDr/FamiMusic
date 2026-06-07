@@ -87,21 +87,6 @@
             navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
-        // FUNCION FRANCOTIRADOR: Corta la conexión si el servidor tarda más de 4 segundos
-        async function fetchRapido(url) {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 4000); 
-            try {
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(id);
-                return response;
-            } catch (error) {
-                clearTimeout(id);
-                throw error;
-            }
-        }
-
-        // MOTOR 1: EL CATÁLOGO (Apple Music)
         async function buscarMusica() {
             const query = document.getElementById('inputBuscar').value;
             if (!query) return;
@@ -136,65 +121,40 @@
             }
         }
 
-        // MOTOR 2: EXTRACCIÓN CON TIMEOUT (Red Invidious)
         async function reproducir(titulo, artista, portada) {
             imgRep.src = portada;
             imgRep.style.display = 'block';
-            titRep.textContent = "Conectando al servidor...";
+            titRep.textContent = "Extrayendo audio...";
             artRep.textContent = artista;
             
             audio.pause();
             audio.removeAttribute('src');
             
-            // Servidores Invidious públicos y súper rápidos
-            const invidiousNodes = [
-                "https://invidious.nerdvpn.de",
-                "https://inv.tux.pizza",
-                "https://invidious.fdn.fr",
-                "https://invidious.slipfox.xyz"
-            ];
+            try {
+                // Le pasamos el trabajo sucio a Render para evitar bloqueos del navegador
+                const busquedaExacta = `${artista} ${titulo} audio`;
+                const response = await fetch(`/api/get-audio?q=${encodeURIComponent(busquedaExacta)}`);
+                const data = await response.json();
 
-            let audioEncontrado = false;
-            const busquedaExacta = `${artista} ${titulo} audio`;
+                if (data.url) {
+                    audio.src = data.url;
+                    audio.play();
+                    titRep.textContent = titulo;
 
-            for (let api of invidiousNodes) {
-                try {
-                    // Usamos fetchRapido: si este nodo se tarda más de 4 segs, lo saltamos.
-                    const searchRes = await fetchRapido(`${api}/api/v1/search?q=${encodeURIComponent(busquedaExacta)}&type=video`);
-                    if (!searchRes.ok) continue;
-                    
-                    const searchData = await searchRes.json();
-                    
-                    if (searchData && searchData.length > 0) {
-                        const videoId = searchData[0].videoId;
-                        
-                        // itag=140 es la bóveda del audio puro M4A de YouTube
-                        const audioUrl = `${api}/latest_version?id=${videoId}&itag=140`;
-                        
-                        audio.src = audioUrl;
-                        audio.play();
-                        audioEncontrado = true;
-                        
-                        titRep.textContent = titulo;
-
-                        if ('mediaSession' in navigator) {
-                            navigator.mediaSession.metadata = new MediaMetadata({
-                                title: titulo,
-                                artist: artista,
-                                album: 'FamiMusic',
-                                artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
-                            });
-                        }
-                        break; 
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: titulo,
+                            artist: artista,
+                            album: 'FamiMusic',
+                            artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
+                        });
                     }
-                } catch (error) {
-                    console.warn("Servidor lento ignorado, pasando al siguiente...");
+                } else {
+                    throw new Error("No URL");
                 }
-            }
-
-            if (!audioEncontrado) {
-                titRep.textContent = "Servidores llenos";
-                alert("Todos los servidores están súper ocupados ahora mismo. Intenta darle play de nuevo.");
+            } catch (error) {
+                titRep.textContent = "Error";
+                alert("Render no pudo extraer el audio en este momento.");
             }
         }
     </script>
