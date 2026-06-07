@@ -6,15 +6,19 @@ const app = express();
 
 app.use(cors());
 
-// Le decimos a Express que todos tus archivos (sw.js, manifest, etc.) están aquí mismo
-app.use(express.static(__dirname));
+// 1. Le decimos al servidor dónde está tu carpeta 'static'
+app.use('/static', express.static(path.join(__dirname, 'static')));
 
-// La puerta principal carga tu diseño
+// 2. Servimos tu diseño directamente desde la carpeta 'templates'
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
 });
 
-// EL BUSCADOR: Le pregunta a Audiomack qué canciones existen
+// 3. Servimos los archivos de tu PWA desde la carpeta 'static'
+app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'static', 'sw.js')));
+app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'static', 'manifest.json')));
+
+// EL BUSCADOR
 app.get('/api/search', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Falta la búsqueda' });
