@@ -543,7 +543,6 @@
 </head>
 <body>
 
-<!-- HEADER -->
 <header class="header">
     <a class="logo" href="/">
         <div class="logo-icon">
@@ -569,7 +568,6 @@
     </div>
 </header>
 
-<!-- GÉNERO CHIPS -->
 <div class="genres" id="genreChips">
     <button class="chip active" onclick="buscarGenero(this,'hits 2025')">🔥 Trending</button>
     <button class="chip" onclick="buscarGenero(this,'bachata 2025')">🇩🇴 Bachata</button>
@@ -585,7 +583,6 @@
     <button class="chip" onclick="buscarGenero(this,'romeo santos bachata')">🎸 Romeo Santos</button>
 </div>
 
-<!-- RESULTADOS -->
 <div class="section-title" id="sectionTitle">Trending</div>
 <div class="grid" id="grid">
     <div class="empty-state">
@@ -594,13 +591,11 @@
     </div>
 </div>
 
-<!-- PLAYER -->
 <div class="player" id="player">
     <div class="progress-wrap" id="progressWrap">
         <div class="progress-fill" id="progressFill"></div>
     </div>
     <div class="player-inner">
-        <!-- Info -->
         <div class="track-info">
             <img class="track-thumb hidden" id="trackThumb" src="" alt="Portada">
             <div class="track-placeholder" id="trackPlaceholder">
@@ -615,7 +610,6 @@
             </div>
         </div>
 
-        <!-- Controles -->
         <div class="controls">
             <button class="ctrl-btn" onclick="anterior()" aria-label="Anterior">
                 <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
@@ -635,7 +629,6 @@
             <span class="time-disp" id="timeDsp">0:00 / 0:00</span>
         </div>
 
-        <!-- Extras -->
         <div class="player-extras">
             <div class="vol-wrap">
                 <svg width="16" height="16" fill="var(--text-muted)" viewBox="0 0 24 24">
@@ -653,7 +646,6 @@
     </div>
 </div>
 
-<!-- QUEUE SIDEBAR -->
 <div class="queue-overlay" id="queueOverlay" onclick="toggleQueue()"></div>
 <div class="queue-panel" id="queuePanel">
     <div class="queue-header">
@@ -670,10 +662,8 @@
     </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- AUDIO (oculto, custom controls) -->
 <audio id="audioEl" preload="none"></audio>
 
 <script>
@@ -715,31 +705,49 @@ async function buscarGenero(chip, query) {
     await cargarResultados(query);
 }
 
+// ==================== BÚSQUEDA HÍBRIDA (Apple Music + Alternativa) ====================
 async function cargarResultados(query) {
     grid.innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Buscando...</p></div>`;
     try {
-        const res = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=24&lang=es_es`
-        );
-        const data = await res.json();
+        // 1. Intentamos primero con Apple Music (Mejor calidad visual)
+        const resApple = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=24&lang=es_es`);
+        const dataApple = await resApple.json();
 
-        if (!data.results?.length) {
-            grid.innerHTML = `<div class="empty-state"><h3>Sin resultados</h3><p>Intenta otro término de búsqueda</p></div>`;
-            return;
+        if (dataApple.results && dataApple.results.length > 0) {
+            // Éxito en Apple Music
+            cola = dataApple.results.map(s => ({
+                titulo: s.trackName,
+                artista: s.artistName,
+                portada: s.artworkUrl100.replace('100x100bb', '512x512bb'),
+                busqueda: `${s.artistName} ${s.trackName} audio oficial`
+            }));
+        } else {
+            // 2. Si Apple Music falla (ej. Mixes de Dembow, Remixes), usamos la red alternativa
+            const nodoPiped = 'https://pipedapi.kavin.rocks';
+            const resAlt = await fetch(`${nodoPiped}/search?q=${encodeURIComponent(query)}&filter=music_songs`);
+            const dataAlt = await resAlt.json();
+
+            if (!dataAlt.items || dataAlt.items.length === 0) {
+                grid.innerHTML = `<div class="empty-state"><h3>Sin resultados</h3><p>Intenta otro término de búsqueda</p></div>`;
+                return;
+            }
+
+            // Éxito en red alternativa (Música independiente/Remixes)
+            cola = dataAlt.items.slice(0, 24).map(s => ({
+                titulo: s.title,
+                artista: s.uploaderName || 'Artista Independiente',
+                portada: s.thumbnail || '', 
+                videoId: s.url.split('?v=')[1], // Guardamos el ID directo para reproducir más rápido
+                busqueda: s.title
+            }));
         }
-
-        cola = data.results.map(s => ({
-            titulo: s.trackName,
-            artista: s.artistName,
-            portada: s.artworkUrl100.replace('100x100bb', '512x512bb'),
-            busqueda: `${s.artistName} ${s.trackName} audio oficial`
-        }));
 
         queueCount.textContent = `${cola.length} canciones`;
         renderGrid();
         renderQueueList();
 
     } catch (e) {
+        console.error(e);
         grid.innerHTML = `<div class="empty-state"><h3>Error de red</h3><p>Verifica tu conexión e intenta de nuevo</p></div>`;
     }
 }
@@ -763,40 +771,78 @@ function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ==================== REPRODUCCIÓN ====================
+// ==================== REPRODUCCIÓN (Extractor Frontend sin Render) ====================
 async function reproducirIndice(i) {
     if (i < 0 || i >= cola.length) return;
     indiceActual = i;
     const cancion = cola[i];
 
-    // Update track info UI
+    // Actualizar UI del reproductor
     trackThumb.src = cancion.portada;
     trackThumb.classList.remove('hidden');
     trackPlaceholder.style.display = 'none';
     trackName.textContent = 'Extrayendo audio...';
     trackArtist.textContent = cancion.artista;
 
-    // Highlight card
+    // Resaltar la tarjeta activa
     document.querySelectorAll('.card').forEach((c, idx) => c.classList.toggle('playing', idx === i));
     renderQueueList();
 
-    // Stop audio
+    // Detener audio actual
     audioEl.pause();
     audioEl.removeAttribute('src');
     setPlayIcon(false);
 
     try {
-        const res = await fetch(`/api/get-audio?q=${encodeURIComponent(cancion.busqueda)}`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        if (!data.url) throw new Error('Sin URL');
+        let audioSrc = null;
+        const arsenalNodos = [
+            'https://pipedapi.kavin.rocks',
+            'https://pipedapi.tokhmi.xyz',
+            'https://pipedapi.smnz.de'
+        ];
 
-        audioEl.src = data.url;
+        let streamData = null;
+
+        // Si la canción vino de la red alternativa, ya tenemos el videoId
+        if (cancion.videoId) {
+            const res = await fetch(`${arsenalNodos[0]}/streams/${cancion.videoId}`);
+            streamData = await res.json();
+        } else {
+            // Si vino de Apple Music, usamos el Frontend para buscar el audio
+            for (let nodo of arsenalNodos) {
+                try {
+                    const searchRes = await fetch(`${nodo}/search?q=${encodeURIComponent(cancion.busqueda)}&filter=music_songs`);
+                    if (!searchRes.ok) continue;
+                    const searchData = await searchRes.json();
+                    
+                    if (searchData.items && searchData.items.length > 0) {
+                        const vId = searchData.items[0].url.split('?v=')[1];
+                        const streamRes = await fetch(`${nodo}/streams/${vId}`);
+                        if (!streamRes.ok) continue;
+                        streamData = await streamRes.json();
+                        break; // Si tuvimos éxito, salimos del bucle
+                    }
+                } catch (err) {
+                    console.warn(`Falló el nodo ${nodo}, intentando otro...`);
+                }
+            }
+        }
+
+        // Buscar el mejor formato de audio disponible
+        if (streamData && streamData.audioStreams && streamData.audioStreams.length > 0) {
+            const bestAudio = streamData.audioStreams.find(s => s.mimeType.includes('mp4')) || streamData.audioStreams[0];
+            audioSrc = bestAudio.url;
+        }
+
+        if (!audioSrc) throw new Error('No se pudo encontrar el enlace de audio');
+
+        // Reproducir
+        audioEl.src = audioSrc;
         await audioEl.play();
         trackName.textContent = cancion.titulo;
         setPlayIcon(true);
 
-        // MediaSession API (pantalla de bloqueo)
+        // Configurar MediaSession (Pantalla de bloqueo)
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: cancion.titulo,
@@ -813,7 +859,7 @@ async function reproducirIndice(i) {
     } catch (err) {
         console.error(err);
         trackName.textContent = 'Error al cargar';
-        toast('⚠️ No se pudo extraer el audio, saltando...');
+        toast('⚠️ Pista no disponible, saltando...');
         setTimeout(siguiente, 1800);
     }
 }
