@@ -54,7 +54,7 @@
             FamiMusic
         </div>
         <div class="search-box">
-            <input type="text" id="inputBuscar" placeholder="Buscar en el catálogo mundial..." onkeypress="if(event.key === 'Enter') buscarMusica()">
+            <input type="text" id="inputBuscar" placeholder="Buscar canciones comerciales..." onkeypress="if(event.key === 'Enter') buscarMusica()">
             <button onclick="buscarMusica()">Buscar</button>
         </div>
     </div>
@@ -87,15 +87,28 @@
             navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
-        // MOTOR 1: EL CATÁLOGO COMERCIAL (Apple Music)
+        // FUNCION FRANCOTIRADOR: Corta la conexión si el servidor tarda más de 4 segundos
+        async function fetchRapido(url) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 4000); 
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
+
+        // MOTOR 1: EL CATÁLOGO (Apple Music)
         async function buscarMusica() {
             const query = document.getElementById('inputBuscar').value;
             if (!query) return;
 
-            contenedorResultados.innerHTML = `<div id="estado">Buscando en Apple Music...</div>`;
+            contenedorResultados.innerHTML = `<div id="estado">Buscando...</div>`;
 
             try {
-                // Apple Music nunca falla y tiene todos los discos oficiales
                 const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=24`);
                 const data = await response.json();
                 
@@ -119,80 +132,69 @@
                 }).join('');
 
             } catch (error) {
-                console.error(error);
                 contenedorResultados.innerHTML = `<div id="estado" style="color: #ff4444;">Error de red al buscar.</div>`;
             }
         }
 
-        // MOTOR 2: EXTRACCIÓN DE AUDIO (YouTube Libre)
+        // MOTOR 2: EXTRACCIÓN CON TIMEOUT (Red Invidious)
         async function reproducir(titulo, artista, portada) {
-            // Actualizamos la interfaz inmediatamente
             imgRep.src = portada;
             imgRep.style.display = 'block';
-            titRep.textContent = "Cargando audio...";
+            titRep.textContent = "Conectando al servidor...";
             artRep.textContent = artista;
             
             audio.pause();
             audio.removeAttribute('src');
             
-            // Servidores globales de Piped (Evitan bloqueos)
-            const pipedNodes = [
-                "https://pipedapi.kavin.rocks",
-                "https://pipedapi.tokhmi.xyz",
-                "https://pipedapi.smnz.de"
+            // Servidores Invidious públicos y súper rápidos
+            const invidiousNodes = [
+                "https://invidious.nerdvpn.de",
+                "https://inv.tux.pizza",
+                "https://invidious.fdn.fr",
+                "https://invidious.slipfox.xyz"
             ];
 
             let audioEncontrado = false;
             const busquedaExacta = `${artista} ${titulo} audio`;
 
-            for (let api of pipedNodes) {
+            for (let api of invidiousNodes) {
                 try {
-                    // Buscamos la canción en YouTube usando Piped
-                    const searchRes = await fetch(`${api}/search?q=${encodeURIComponent(busquedaExacta)}&filter=music_songs`);
+                    // Usamos fetchRapido: si este nodo se tarda más de 4 segs, lo saltamos.
+                    const searchRes = await fetchRapido(`${api}/api/v1/search?q=${encodeURIComponent(busquedaExacta)}&type=video`);
                     if (!searchRes.ok) continue;
                     
                     const searchData = await searchRes.json();
                     
-                    if (searchData.items && searchData.items.length > 0) {
-                        const videoUrl = searchData.items[0].url; 
-                        const videoId = videoUrl.split('?v=')[1];
+                    if (searchData && searchData.length > 0) {
+                        const videoId = searchData[0].videoId;
                         
-                        // Extraemos el archivo puro
-                        const streamRes = await fetch(`${api}/streams/${videoId}`);
-                        if (!streamRes.ok) continue;
+                        // itag=140 es la bóveda del audio puro M4A de YouTube
+                        const audioUrl = `${api}/latest_version?id=${videoId}&itag=140`;
+                        
+                        audio.src = audioUrl;
+                        audio.play();
+                        audioEncontrado = true;
+                        
+                        titRep.textContent = titulo;
 
-                        const streamData = await streamRes.json();
-
-                        if (streamData.audioStreams && streamData.audioStreams.length > 0) {
-                            // Filtramos m4a (el mejor formato nativo para tu iPhone)
-                            const bestAudio = streamData.audioStreams.find(s => s.mimeType.includes('mp4')) || streamData.audioStreams[0];
-                            
-                            audio.src = bestAudio.url;
-                            audio.play();
-                            audioEncontrado = true;
-                            
-                            // Devolvemos el título a la normalidad
-                            titRep.textContent = titulo;
-
-                            if ('mediaSession' in navigator) {
-                                navigator.mediaSession.metadata = new MediaMetadata({
-                                    title: titulo,
-                                    artist: artista,
-                                    album: 'FamiMusic',
-                                    artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
-                                });
-                            }
-                            break; // Se encontró la canción, salimos del bucle
+                        if ('mediaSession' in navigator) {
+                            navigator.mediaSession.metadata = new MediaMetadata({
+                                title: titulo,
+                                artist: artista,
+                                album: 'FamiMusic',
+                                artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
+                            });
                         }
+                        break; 
                     }
                 } catch (error) {
-                    console.warn(`Falló el servidor ${api}, conectando al respaldo...`);
+                    console.warn("Servidor lento ignorado, pasando al siguiente...");
                 }
             }
 
             if (!audioEncontrado) {
-                titRep.textContent = "Error al cargar";
-                alert("No se pudo extraer el audio de los servidores en este momento.");
+                titRep.textContent = "Servidores llenos";
+                alert("Todos los servidores están súper ocupados ahora mismo. Intenta darle play de nuevo.");
             }
         }
     </script>
