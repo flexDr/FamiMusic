@@ -1,16 +1,21 @@
 {
-  "short_name": "MusicAPI",
-  "name": "MusicAPI Premium",
+  "name": "FamiMusic",
+  "short_name": "FamiMusic",
+  "description": "Tu música favorita: bachata, merengue, dembow, reggaeton y más",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3669/3669483.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#09090b",
-  "theme_color": "#8b5cf6",
+  "scope": "/",
+  "background_color": "#030303",
+  "theme_color": "#030303",
   "display": "standalone",
-  "orientation": "portrait"
+  "orientation": "portrait-primary",
+  "categories": ["music", "entertainment"],
+  "lang": "es"
 }
