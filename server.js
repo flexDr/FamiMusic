@@ -6,70 +6,83 @@ const app = express();
 
 app.use(cors());
 
-// 1. Le decimos al servidor dónde está tu carpeta 'static'
+// Mantenemos tus rutas visuales que ya funcionaron perfecto
 app.use('/static', express.static(path.join(__dirname, 'static')));
-
-// 2. Servimos tu diseño directamente desde la carpeta 'templates'
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
-});
-
-// 3. Servimos los archivos de tu PWA desde la carpeta 'static'
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'static', 'sw.js')));
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'static', 'manifest.json')));
 
-// EL BUSCADOR
+// 1. EL NUEVO BUSCADOR (Potenciado por Apple Music / iTunes)
 app.get('/api/search', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Falta la búsqueda' });
 
     try {
-        const searchRes = await axios.get(`https://audiomack.com/api/search?q=${encodeURIComponent(query)}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-        });
+        // Le preguntamos a Apple, que jamás bloquea las peticiones
+        const searchRes = await axios.get(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=20`);
         
-        const canciones = searchRes.data.songs.map(song => ({
-            titulo: song.title,
-            artista: song.artist,
-            imagen: song.image,
-            url: `https://audiomack.com/${song.artist_url}/song/${song.url_slug}` 
+        const canciones = searchRes.data.results.map(song => ({
+            titulo: song.trackName,
+            artista: song.artistName,
+            // Apple nos da la imagen pequeña, la cambiamos a alta resolución (512x512)
+            imagen: song.artworkUrl100.replace('100x100bb', '512x512bb'),
+            // En lugar de una URL, mandamos el texto de búsqueda para el extractor
+            url: `${song.artistName} ${song.trackName}` 
         }));
 
         res.json(canciones);
     } catch (error) {
-        console.error("Error buscando:", error.message);
+        console.error("Error buscando en Apple:", error.message);
         res.status(500).json({ error: 'Error al buscar en el catálogo' });
     }
 });
 
-// EL EXTRACTOR DE AUDIO
-function extraerDatosUrl(url) {
-    try {
-        const urlObj = new URL(url);
-        const partes = urlObj.pathname.split('/').filter(Boolean);
-        if (partes.length >= 3) return { artista: partes[0], titulo: partes[2] };
-        return null;
-    } catch (e) { return null; }
-}
-
+// 2. EL NUEVO EXTRACTOR (Potenciado por la red Piped)
 app.get('/api/stream', async (req, res) => {
-    const videoUrl = req.query.url;
-    const datos = extraerDatosUrl(videoUrl);
-    if (!datos) return res.status(400).send('URL no válida');
+    const searchQuery = req.query.url; // Ej: "Huan 62"
+    if (!searchQuery) return res.status(400).send('Falta la canción');
 
-    try {
-        const infoRes = await axios.get(`https://audiomack.com/api/music/url/song/${datos.artista}/${datos.titulo}?extended=true`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-        });
-        
-        const urlAudioPuro = infoRes.data.url;
-        if (!urlAudioPuro) throw new Error("Sin enlace directo");
-        
-        res.redirect(urlAudioPuro);
-    } catch (error) {
-        res.status(500).send('Error conectando con la API');
+    // Múltiples servidores de respaldo por si alguno está lleno
+    const pipedInstances = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.smnz.de"
+    ];
+
+    let streamUrl = null;
+
+    for (let api of pipedInstances) {
+        try {
+            // Buscamos el ID interno de la canción
+            const searchRes = await axios.get(`${api}/search?q=${encodeURIComponent(searchQuery)}`);
+            if (!searchRes.data.items || searchRes.data.items.length === 0) continue;
+            
+            const videoUrl = searchRes.data.items[0].url;
+            const videoId = videoUrl.split('v=')[1]; // Extraemos solo el código
+            
+            // Pedimos los enlaces puros de audio
+            const streamRes = await axios.get(`${api}/streams/${videoId}`);
+            const audioStreams = streamRes.data.audioStreams;
+            if (!audioStreams || audioStreams.length === 0) continue;
+            
+            // Ordenamos para obtener la mejor calidad y seleccionamos la URL
+            audioStreams.sort((a, b) => b.bitrate - a.bitrate);
+            streamUrl = audioStreams[0].url;
+            break; // ¡Bingo! Encontramos la canción, salimos del ciclo.
+            
+        } catch (error) {
+            console.log(`Fallo en el servidor ${api}, intentando el siguiente...`);
+            continue;
+        }
+    }
+
+    if (streamUrl) {
+        // Redirigimos el audio directamente a tu iPhone
+        res.redirect(streamUrl);
+    } else {
+        res.status(500).send('Servidores de audio ocupados.');
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`FamiMusic App rugiendo en el puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Motor Híbrido FamiMusic rugiendo en el puerto ${PORT}`));
