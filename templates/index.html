@@ -87,20 +87,20 @@
             navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
-        // ATAQUE FRONT-END: El celular hace el trabajo, evadiendo Cloudflare con un Proxy CORS
+        // ATAQUE FRONT-END V2: Túnel AllOrigins
         async function buscarMusica() {
             const query = document.getElementById('inputBuscar').value;
             if (!query) return;
 
-            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Infiltrando Audiomack...</p>`;
+            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Infiltrando por nuevo túnel...</p>`;
 
             try {
-                // Preparamos el ataque pasando la petición por corsproxy.io
+                // Usamos un proxy menos detectado
                 const targetUrl = `https://audiomack.com/api/search?q=${encodeURIComponent(query)}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                 
                 const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('El proxy fue detectado');
+                if (!response.ok) throw new Error('El túnel fue bloqueado');
                 
                 const data = await response.json();
                 
@@ -109,7 +109,6 @@
                     return;
                 }
 
-                // Dibujamos las tarjetas usando los datos internos crudos
                 contenedorResultados.innerHTML = data.songs.map(song => `
                     <div class="tarjeta" onclick="reproducir('${song.artist_url}', '${song.url_slug}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.image.replace('?width=150', '?width=512')}')">
                         <img src="${song.image.replace('?width=150', '?width=512')}" alt="Portada" loading="lazy">
@@ -120,11 +119,10 @@
 
             } catch (error) {
                 console.error("Fallo:", error);
-                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Bloqueo de seguridad detectado.</p>`;
+                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Cloudflare bloqueó el túnel AllOrigins.</p>`;
             }
         }
 
-        // EL EXTRACTOR DE AUDIO DESDE EL CELULAR
         async function reproducir(artistaUrl, slug, titulo, artista, portada) {
             imgRep.src = portada;
             imgRep.style.display = 'block';
@@ -132,15 +130,13 @@
             artRep.textContent = artista;
             
             try {
-                // Le pedimos a Audiomack el MP3 directo pasando por el Proxy
                 const targetUrl = `https://audiomack.com/api/music/url/song/${artistaUrl}/${slug}?extended=true`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 const data = await response.json();
                 
                 if (data.url) {
-                    // Magia pura: El MP3 directo inyectado en el reproductor
                     audio.src = data.url;
                     audio.play();
 
@@ -153,11 +149,11 @@
                         });
                     }
                 } else {
-                    alert("Audiomack ocultó el enlace de esta pista.");
+                    alert("Audiomack ocultó el enlace.");
                 }
             } catch (error) {
                 console.error("Error al extraer:", error);
-                alert("Cloudflare bloqueó la descarga del audio.");
+                alert("Cloudflare cortó la descarga del audio.");
             }
         }
     </script>
