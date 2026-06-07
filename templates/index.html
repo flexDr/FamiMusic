@@ -12,13 +12,13 @@
         .logo { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
         .search-box { display: flex; flex: 1; max-width: 400px; background: #212121; border-radius: 8px; padding: 2px; border: 1px solid #303030; }
         .search-box input { flex: 1; background: transparent; border: none; padding: 10px 15px; color: white; font-size: 16px; outline: none; }
-        .search-box button { background: transparent; border: none; color: #aaaaaa; padding: 0 15px; cursor: pointer; font-weight: bold; }
+        .search-box button { background: transparent; border: none; color: #aaaaaa; padding: 0 15px; cursor: pointer; font-weight: bold; transition: color 0.2s; }
         .search-box button:hover { color: #ffffff; }
         
         .resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; padding: 30px; max-width: 1200px; margin: 0 auto; }
         .tarjeta { background: transparent; cursor: pointer; transition: transform 0.2s; }
         .tarjeta:hover { transform: scale(1.02); }
-        .tarjeta img { width: 100%; border-radius: 4px; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .tarjeta img { width: 100%; border-radius: 4px; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); background-color: #212121; }
         .titulo { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
         .artista { color: #aaaaaa; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -87,73 +87,68 @@
             navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
-        // ATAQUE FRONT-END V2: Túnel AllOrigins
+        // MOTOR HEARTHIS.AT: Búsqueda y Extracción en un solo paso
         async function buscarMusica() {
             const query = document.getElementById('inputBuscar').value;
             if (!query) return;
 
-            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Infiltrando por nuevo túnel...</p>`;
+            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Buscando en Hearthis.at...</p>`;
 
             try {
-                // Usamos un proxy menos detectado
-                const targetUrl = `https://audiomack.com/api/search?q=${encodeURIComponent(query)}`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                // API Pública de Hearthis sin restricciones CORS
+                const response = await fetch(`https://api-v2.hearthis.at/search/?t=${encodeURIComponent(query)}`);
+                const canciones = await response.json();
                 
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('El túnel fue bloqueado');
-                
-                const data = await response.json();
-                
-                if (!data.songs || data.songs.length === 0) {
+                if (!canciones || canciones.length === 0) {
                     contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">No se encontró nada.</p>`;
                     return;
                 }
 
-                contenedorResultados.innerHTML = data.songs.map(song => `
-                    <div class="tarjeta" onclick="reproducir('${song.artist_url}', '${song.url_slug}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.image.replace('?width=150', '?width=512')}')">
-                        <img src="${song.image.replace('?width=150', '?width=512')}" alt="Portada" loading="lazy">
-                        <div class="titulo">${song.title}</div>
-                        <div class="artista">${song.artist}</div>
-                    </div>
-                `).join('');
+                // Generamos las tarjetas directamente con el enlace del audio
+                contenedorResultados.innerHTML = canciones.map(song => {
+                    // Protegemos contra datos faltantes
+                    if (!song.stream_url) return ''; 
+                    
+                    const tituloLimpio = song.title ? song.title.replace(/'/g, "\\'") : 'Desconocido';
+                    const artistaLimpio = song.user && song.user.username ? song.user.username.replace(/'/g, "\\'") : 'Artista';
+                    
+                    // Si no tiene portada, le ponemos un fondo gris oscuro
+                    const portada = song.artwork_url || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; 
+
+                    return `
+                        <div class="tarjeta" onclick="reproducir('${song.stream_url}', '${tituloLimpio}', '${artistaLimpio}', '${portada}')">
+                            <img src="${portada}" alt="Portada" loading="lazy">
+                            <div class="titulo">${song.title}</div>
+                            <div class="artista">${artistaLimpio}</div>
+                        </div>
+                    `;
+                }).join('');
 
             } catch (error) {
-                console.error("Fallo:", error);
-                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Cloudflare bloqueó el túnel AllOrigins.</p>`;
+                console.error("Fallo Búsqueda:", error);
+                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Error al conectar con Hearthis.at.</p>`;
             }
         }
 
-        async function reproducir(artistaUrl, slug, titulo, artista, portada) {
+        // REPRODUCCIÓN INMEDIATA (Ya tenemos el enlace desde la búsqueda)
+        function reproducir(streamUrl, titulo, artista, portada) {
             imgRep.src = portada;
             imgRep.style.display = 'block';
             titRep.textContent = titulo;
             artRep.textContent = artista;
             
-            try {
-                const targetUrl = `https://audiomack.com/api/music/url/song/${artistaUrl}/${slug}?extended=true`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-                
-                const response = await fetch(proxyUrl);
-                const data = await response.json();
-                
-                if (data.url) {
-                    audio.src = data.url;
-                    audio.play();
+            // Le metemos el audio directo al reproductor nativo del iPhone
+            audio.src = streamUrl;
+            audio.play();
 
-                    if ('mediaSession' in navigator) {
-                        navigator.mediaSession.metadata = new MediaMetadata({
-                            title: titulo,
-                            artist: artista,
-                            album: 'FamiMusic',
-                            artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
-                        });
-                    }
-                } else {
-                    alert("Audiomack ocultó el enlace.");
-                }
-            } catch (error) {
-                console.error("Error al extraer:", error);
-                alert("Cloudflare cortó la descarga del audio.");
+            // Metadatos para que se vea bonito en la pantalla de bloqueo
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: titulo,
+                    artist: artista,
+                    album: 'FamiMusic',
+                    artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
+                });
             }
         }
     </script>
