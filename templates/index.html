@@ -259,7 +259,6 @@
             flex-direction: column;
         }
 
-        /* Progress bar */
         .progress-wrap {
             height: 3px;
             background: var(--surface2);
@@ -295,7 +294,6 @@
             gap: 16px;
         }
 
-        /* Track info */
         .track-info {
             display: flex;
             align-items: center;
@@ -341,7 +339,6 @@
             margin-top: 2px;
         }
 
-        /* Controls */
         .controls {
             flex: 1;
             display: flex;
@@ -377,7 +374,6 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* Extras */
         .player-extras {
             display: flex;
             align-items: center;
@@ -387,11 +383,7 @@
             flex-shrink: 0;
         }
 
-        .vol-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .vol-wrap { display: flex; align-items: center; gap: 8px; }
 
         input[type="range"] {
             -webkit-appearance: none;
@@ -408,121 +400,69 @@
             border-radius: 50%;
         }
 
-        /* ===== QUEUE ===== */
         .queue-overlay {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0;
             background: rgba(0,0,0,0.55);
-            z-index: 250;
-            opacity: 0;
-            pointer-events: none;
+            z-index: 250; opacity: 0; pointer-events: none;
             transition: opacity 0.3s;
         }
         .queue-overlay.open { opacity: 1; pointer-events: all; }
 
         .queue-panel {
-            position: fixed;
-            right: 0; top: 0;
-            bottom: var(--player-h);
-            width: 320px;
-            background: var(--surface);
+            position: fixed; right: 0; top: 0; bottom: var(--player-h);
+            width: 320px; background: var(--surface);
             border-left: 1px solid var(--border);
-            z-index: 251;
-            transform: translateX(100%);
+            z-index: 251; transform: translateX(100%);
             transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
         }
         .queue-panel.open { transform: translateX(0); }
 
         .queue-header {
-            padding: 18px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            padding: 18px 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
         }
         .queue-header h3 { font-size: 15px; font-weight: 600; }
 
         .queue-count {
-            font-size: 12px;
-            color: var(--text-muted);
-            background: var(--surface2);
-            padding: 2px 8px;
-            border-radius: 10px;
+            font-size: 12px; color: var(--text-muted);
+            background: var(--surface2); padding: 2px 8px; border-radius: 10px;
         }
 
         .queue-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 6px 0;
-            scrollbar-width: thin;
-            scrollbar-color: var(--surface2) transparent;
+            flex: 1; overflow-y: auto; padding: 6px 0;
+            scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
         }
 
         .queue-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            cursor: pointer;
-            transition: background 0.15s;
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 20px; cursor: pointer; transition: background 0.15s;
         }
         .queue-item:hover { background: var(--surface2); }
         .queue-item.current { background: rgba(255,51,51,0.1); border-left: 2px solid var(--accent); padding-left: 18px; }
 
         .queue-item img {
-            width: 40px; height: 40px;
-            border-radius: 4px;
-            object-fit: cover;
-            flex-shrink: 0;
+            width: 40px; height: 40px; border-radius: 4px;
+            object-fit: cover; flex-shrink: 0;
         }
 
-        .queue-num {
-            width: 20px;
-            font-size: 12px;
-            color: var(--text-muted);
-            text-align: center;
-            flex-shrink: 0;
-        }
+        .queue-num { width: 20px; font-size: 12px; color: var(--text-muted); text-align: center; flex-shrink: 0; }
         .queue-item.current .queue-num { color: var(--accent); }
 
         .qi-texts { min-width: 0; flex: 1; }
-        .qi-title {
-            font-size: 13px; font-weight: 500;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .qi-artist {
-            font-size: 12px; color: var(--text-muted);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+        .qi-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .qi-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .queue-item.current .qi-title { color: var(--accent); }
 
-        /* ===== TOAST ===== */
         .toast {
-            position: fixed;
-            bottom: calc(var(--player-h) + 14px);
-            left: 50%;
+            position: fixed; bottom: calc(var(--player-h) + 14px); left: 50%;
             transform: translateX(-50%) translateY(12px);
-            background: #2a2a2a;
-            color: #fff;
-            padding: 9px 20px;
-            border-radius: 24px;
-            font-size: 13px;
-            opacity: 0;
-            transition: all 0.3s;
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 400;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            background: #2a2a2a; color: #fff; padding: 9px 20px; border-radius: 24px;
+            font-size: 13px; opacity: 0; transition: all 0.3s; pointer-events: none;
+            white-space: nowrap; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        /* ===== LOADING OVERLAY en card ===== */
-        @keyframes pulse { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
-        .card.loading img { animation: pulse 1s ease-in-out infinite; }
-
-        /* ===== MOBILE ===== */
         @media (max-width: 680px) {
             .header { padding: 10px 14px; gap: 12px; }
             .logo-text { display: none; }
@@ -569,7 +509,7 @@
 </header>
 
 <div class="genres" id="genreChips">
-    <button class="chip active" onclick="buscarGenero(this,'hits 2025')">🔥 Trending</button>
+    <button class="chip active" onclick="cargarTrending(this)">🔥 Trending</button>
     <button class="chip" onclick="buscarGenero(this,'bachata 2025')">🇩🇴 Bachata</button>
     <button class="chip" onclick="buscarGenero(this,'merengue dominicano')">💃 Merengue</button>
     <button class="chip" onclick="buscarGenero(this,'dembow dominicano 2025')">🎤 Dembow</button>
@@ -683,12 +623,10 @@ const progressFill = document.getElementById('progressFill');
 const timeDsp = document.getElementById('timeDsp');
 const queueCount = document.getElementById('queueCount');
 
-// ==================== PWA ====================
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-// ==================== BÚSQUEDA ====================
 async function buscar() {
     const q = document.getElementById('searchInput').value.trim();
     if (!q) return;
@@ -705,16 +643,13 @@ async function buscarGenero(chip, query) {
     await cargarResultados(query);
 }
 
-// ==================== BÚSQUEDA HÍBRIDA (Apple Music + Alternativa) ====================
 async function cargarResultados(query) {
     grid.innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Buscando...</p></div>`;
     try {
-        // 1. Intentamos primero con Apple Music (Mejor calidad visual)
         const resApple = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=24&lang=es_es`);
         const dataApple = await resApple.json();
 
         if (dataApple.results && dataApple.results.length > 0) {
-            // Éxito en Apple Music
             cola = dataApple.results.map(s => ({
                 titulo: s.trackName,
                 artista: s.artistName,
@@ -722,24 +657,8 @@ async function cargarResultados(query) {
                 busqueda: `${s.artistName} ${s.trackName} audio oficial`
             }));
         } else {
-            // 2. Si Apple Music falla (ej. Mixes de Dembow, Remixes), usamos la red alternativa
-            const nodoPiped = 'https://pipedapi.kavin.rocks';
-            const resAlt = await fetch(`${nodoPiped}/search?q=${encodeURIComponent(query)}&filter=music_songs`);
-            const dataAlt = await resAlt.json();
-
-            if (!dataAlt.items || dataAlt.items.length === 0) {
-                grid.innerHTML = `<div class="empty-state"><h3>Sin resultados</h3><p>Intenta otro término de búsqueda</p></div>`;
-                return;
-            }
-
-            // Éxito en red alternativa (Música independiente/Remixes)
-            cola = dataAlt.items.slice(0, 24).map(s => ({
-                titulo: s.title,
-                artista: s.uploaderName || 'Artista Independiente',
-                portada: s.thumbnail || '', 
-                videoId: s.url.split('?v=')[1], // Guardamos el ID directo para reproducir más rápido
-                busqueda: s.title
-            }));
+            grid.innerHTML = `<div class="empty-state"><h3>Sin resultados</h3><p>Intenta otro término de búsqueda</p></div>`;
+            return;
         }
 
         queueCount.textContent = `${cola.length} canciones`;
@@ -747,7 +666,6 @@ async function cargarResultados(query) {
         renderQueueList();
 
     } catch (e) {
-        console.error(e);
         grid.innerHTML = `<div class="empty-state"><h3>Error de red</h3><p>Verifica tu conexión e intenta de nuevo</p></div>`;
     }
 }
@@ -771,98 +689,109 @@ function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ==================== REPRODUCCIÓN ULTRA-RESISTENTE ====================
+// ==================== EXTRACCIÓN MAESTRA (IPHONE DIRECTO) ====================
 async function reproducirIndice(i) {
     if (i < 0 || i >= cola.length) return;
     indiceActual = i;
     const cancion = cola[i];
 
-    // Actualizar UI del reproductor
     trackThumb.src = cancion.portada;
     trackThumb.classList.remove('hidden');
     trackPlaceholder.style.display = 'none';
-    trackName.textContent = 'Buscando servidor...';
+    trackName.textContent = 'Rastreando pista...';
     trackArtist.textContent = cancion.artista;
 
-    // Resaltar la tarjeta activa
     document.querySelectorAll('.card').forEach((c, idx) => c.classList.toggle('playing', idx === i));
     renderQueueList();
 
-    // Detener audio actual
     audioEl.pause();
     audioEl.removeAttribute('src');
     setPlayIcon(false);
 
     try {
-        let audioSrc = null;
-        let streamData = null;
+        let vId = cancion.videoId;
 
-        // 1. Ampliamos el arsenal de servidores públicos (evitan tu Render)
-        const arsenalNodos = [
+        // 1. Usamos tu servidor Render solo para conseguir el ID secreto de YouTube
+        if (!vId) {
+            const resRender = await fetch(`/api/search-yt?q=${encodeURIComponent(cancion.busqueda)}`);
+            if (resRender.ok) {
+                const data = await resRender.json();
+                vId = data.videoId;
+                cancion.videoId = vId; // Lo guardamos para que no vuelva a buscar si le das play otra vez
+            }
+        }
+
+        if (!vId) throw new Error('No se encontró el video.');
+
+        trackName.textContent = 'Descargando audio...';
+        let audioSrc = null;
+
+        // 2. Extractor Principal: API Piped (CORS habilitado para celulares)
+        const pipedNodes = [
             'https://pipedapi.kavin.rocks',
-            'https://piped-api.garudalinux.org',
-            'https://pipedapi.drgns.space',
+            'https://pipedapi.tokhmi.xyz',
+            'https://pipedapi.smnz.de',
             'https://api.piped.projectsegfau.lt'
         ];
 
-        // Intentar con los servidores públicos uno por uno
-        for (let nodo of arsenalNodos) {
+        for (let nodo of pipedNodes) {
             try {
-                let vId = cancion.videoId;
-                
-                // Si no tiene videoId (vino de Apple Music), lo buscamos primero
-                if (!vId) {
-                    const searchRes = await fetch(`${nodo}/search?q=${encodeURIComponent(cancion.busqueda)}&filter=music_songs`);
-                    if (!searchRes.ok) continue;
-                    const searchData = await searchRes.json();
-                    if (searchData.items && searchData.items.length > 0) {
-                        vId = searchData.items[0].url.split('?v=')[1];
-                    }
-                }
+                // Cronómetro Francotirador: Le damos máximo 4 segundos a cada servidor
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-                // Si logramos obtener un ID, extraemos el stream de audio
-                if (vId) {
-                    const streamRes = await fetch(`${nodo}/streams/${vId}`);
-                    if (!streamRes.ok) continue;
-                    streamData = await streamRes.json();
-                    
-                    // Si el servidor nos devolvió audio, rompemos el ciclo (éxito)
-                    if (streamData && streamData.audioStreams && streamData.audioStreams.length > 0) {
-                        break; 
+                const streamRes = await fetch(`${nodo}/streams/${vId}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (streamRes.ok) {
+                    const data = await streamRes.json();
+                    if (data && data.audioStreams && data.audioStreams.length > 0) {
+                        const bestAudio = data.audioStreams.find(s => s.mimeType.includes('m4a') || s.mimeType.includes('mp4')) || data.audioStreams[0];
+                        if (bestAudio && bestAudio.url) {
+                            audioSrc = bestAudio.url;
+                            break; 
+                        }
                     }
                 }
-            } catch (err) {
-                console.warn(`Falló el nodo ${nodo}, intentando con el siguiente...`);
+            } catch (e) {
+                console.warn(`Piped falló por lentitud en ${nodo}`);
             }
         }
 
-        // Buscar el mejor formato de audio del nodo público (MP4/M4A suele cargar más rápido)
-        if (streamData && streamData.audioStreams) {
-            const bestAudio = streamData.audioStreams.find(s => s.mimeType.includes('mp4') || s.mimeType.includes('m4a')) || streamData.audioStreams[0];
-            if (bestAudio) audioSrc = bestAudio.url;
-        }
-
-        // 2. FALLBACK DE EMERGENCIA: Si todos los públicos fallaron, usamos tu backend de Render
+        // 3. Extractor de Emergencia: Enlace directo de Invidious
         if (!audioSrc) {
-            trackName.textContent = 'Usando servidor propio...';
-            console.log("Nodos públicos fallaron. Recurriendo a la API propia...");
-            const res = await fetch(`/api/get-audio?q=${encodeURIComponent(cancion.busqueda)}`);
-            if (res.ok) {
-                const data = await res.json();
-                audioSrc = data.url;
+            const invidiousNodes = [
+                'https://invidious.nerdvpn.de',
+                'https://inv.tux.pizza',
+                'https://invidious.slipfox.xyz'
+            ];
+            
+            for (let nodo of invidiousNodes) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3500);
+                    const invRes = await fetch(`${nodo}/api/v1/videos/${vId}`, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (invRes.ok) {
+                        // Enlace directo en formato M4A (El favorito del iPhone)
+                        audioSrc = `${nodo}/latest_version?id=${vId}&itag=140`;
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`Invidious falló por lentitud en ${nodo}`);
+                }
             }
         }
 
-        // Si después de todo esto sigue sin haber audio, lanzamos el error
         if (!audioSrc) throw new Error('Agotados todos los recursos de audio');
 
-        // Reproducir la pista
+        // ¡Reproducir la pista directo en el dispositivo!
         audioEl.src = audioSrc;
         await audioEl.play();
         trackName.textContent = cancion.titulo;
         setPlayIcon(true);
 
-        // Configurar MediaSession (Pantalla de bloqueo)
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: cancion.titulo,
@@ -878,10 +807,10 @@ async function reproducirIndice(i) {
 
     } catch (err) {
         console.error(err);
-        trackName.textContent = 'Error al cargar';
-        toast('⚠️ No se pudo extraer el audio, saltando...');
-        // Espera un momento y salta a la siguiente
-        setTimeout(siguiente, 1800);
+        trackName.textContent = 'Servidores ocupados';
+        toast('⚠️ Servidor lleno, intentando la siguiente...');
+        // Salta a la siguiente canción a los 2 segundos
+        setTimeout(siguiente, 2000);
     }
 }
 
@@ -906,7 +835,6 @@ function setPlayIcon(playing) {
         : '<path d="M8 5v14l11-7z"/>';
 }
 
-// ==================== AUDIO EVENTS ====================
 audioEl.addEventListener('play', () => setPlayIcon(true));
 audioEl.addEventListener('pause', () => setPlayIcon(false));
 audioEl.addEventListener('ended', siguiente);
@@ -919,7 +847,7 @@ audioEl.addEventListener('timeupdate', () => {
 });
 
 audioEl.addEventListener('error', () => {
-    toast('⚠️ Error en el audio, saltando...');
+    toast('⚠️ Error al leer el audio, saltando...');
     setTimeout(siguiente, 1500);
 });
 
@@ -934,7 +862,6 @@ function fmt(s) {
     return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
 
-// ==================== QUEUE ====================
 function toggleQueue() {
     document.getElementById('queuePanel').classList.toggle('open');
     document.getElementById('queueOverlay').classList.toggle('open');
@@ -959,12 +886,10 @@ function renderQueueList() {
         </div>
     `).join('');
 
-    // Scroll to current
     const cur = list.querySelector('.current');
     if (cur) cur.scrollIntoView({ block: 'nearest' });
 }
 
-// ==================== TOAST ====================
 let toastTimer;
 function toast(msg) {
     const t = document.getElementById('toast');
@@ -974,8 +899,30 @@ function toast(msg) {
     toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ==================== INIT ====================
-cargarResultados('hits 2025');
+// ==================== INIT DINÁMICO ====================
+function cargarTrending(chipElement = null) {
+    if (chipElement) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chipElement.classList.add('active');
+        document.getElementById('searchInput').value = '';
+        document.getElementById('sectionTitle').textContent = chipElement.textContent;
+    }
+
+    const terminos = [
+        'hits 2026', 
+        'top 50 global', 
+        'éxitos virales', 
+        'lo mas escuchado', 
+        'top latino 2026', 
+        'tendencias globales',
+        'pop hits 2026'
+    ];
+    
+    const busquedaRandom = terminos[Math.floor(Math.random() * terminos.length)];
+    cargarResultados(busquedaRandom);
+}
+
+cargarTrending();
 </script>
 </body>
 </html>
