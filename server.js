@@ -5,11 +5,14 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors());
-app.use(express.static(__dirname));
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// 1. LAS RUTAS CORRECTAS (Para tus carpetas 'static' y 'templates')
+app.use('/static', express.static(path.join(__dirname, 'static')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
+app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'static', 'sw.js')));
+app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'static', 'manifest.json')));
 
-// EL BUSCADOR (Apple Music - Intacto y perfecto)
+// 2. EL BUSCADOR (Apple Music - Intacto y perfecto)
 app.get('/api/search', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Falta la búsqueda' });
@@ -29,7 +32,7 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// EL NUEVO EXTRACTOR (Potenciado por Invidious)
+// 3. EL EXTRACTOR DE AUDIO (Potenciado por Invidious)
 app.get('/api/stream', async (req, res) => {
     const searchQuery = req.query.url; 
     if (!searchQuery) return res.status(400).send('Falta la canción');
@@ -44,14 +47,13 @@ app.get('/api/stream', async (req, res) => {
 
     for (let api of invidiousInstances) {
         try {
-            // 1. Buscamos el ID interno
+            // Buscamos el ID interno
             const searchRes = await axios.get(`${api}/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`, { timeout: 6000 });
             
             if (searchRes.data && searchRes.data.length > 0) {
                 const videoId = searchRes.data[0].videoId;
                 
-                // 2. MAGIA: itag=140 es el código universal de YouTube para el audio puro en M4A.
-                // Invidious nos redirige directo sin que Render tenga que descargar nada.
+                // Redirigimos directo al audio puro (M4A)
                 const audioUrl = `${api}/latest_version?id=${videoId}&itag=140`;
                 
                 console.log(`[ÉXITO] Transmitiendo "${searchQuery}" a través de: ${api}`);
@@ -59,7 +61,7 @@ app.get('/api/stream', async (req, res) => {
             }
         } catch (error) {
             console.log(`[FALLO] El nodo ${api} está ocupado. Saltando al siguiente...`);
-            continue;
+            continue; // Si un servidor falla, pasa inmediatamente al siguiente de la lista
         }
     }
 
