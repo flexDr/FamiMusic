@@ -771,7 +771,7 @@ function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ==================== REPRODUCCIÓN (Extractor Frontend sin Render) ====================
+// ==================== REPRODUCCIÓN ULTRA-RESISTENTE ====================
 async function reproducirIndice(i) {
     if (i < 0 || i >= cola.length) return;
     indiceActual = i;
@@ -781,7 +781,7 @@ async function reproducirIndice(i) {
     trackThumb.src = cancion.portada;
     trackThumb.classList.remove('hidden');
     trackPlaceholder.style.display = 'none';
-    trackName.textContent = 'Extrayendo audio...';
+    trackName.textContent = 'Buscando servidor...';
     trackArtist.textContent = cancion.artista;
 
     // Resaltar la tarjeta activa
@@ -795,48 +795,68 @@ async function reproducirIndice(i) {
 
     try {
         let audioSrc = null;
-        const arsenalNodos = [
-            'https://pipedapi.kavin.rocks',
-            'https://pipedapi.tokhmi.xyz',
-            'https://pipedapi.smnz.de'
-        ];
-
         let streamData = null;
 
-        // Si la canción vino de la red alternativa, ya tenemos el videoId
-        if (cancion.videoId) {
-            const res = await fetch(`${arsenalNodos[0]}/streams/${cancion.videoId}`);
-            streamData = await res.json();
-        } else {
-            // Si vino de Apple Music, usamos el Frontend para buscar el audio
-            for (let nodo of arsenalNodos) {
-                try {
+        // 1. Ampliamos el arsenal de servidores públicos (evitan tu Render)
+        const arsenalNodos = [
+            'https://pipedapi.kavin.rocks',
+            'https://piped-api.garudalinux.org',
+            'https://pipedapi.drgns.space',
+            'https://api.piped.projectsegfau.lt'
+        ];
+
+        // Intentar con los servidores públicos uno por uno
+        for (let nodo of arsenalNodos) {
+            try {
+                let vId = cancion.videoId;
+                
+                // Si no tiene videoId (vino de Apple Music), lo buscamos primero
+                if (!vId) {
                     const searchRes = await fetch(`${nodo}/search?q=${encodeURIComponent(cancion.busqueda)}&filter=music_songs`);
                     if (!searchRes.ok) continue;
                     const searchData = await searchRes.json();
-                    
                     if (searchData.items && searchData.items.length > 0) {
-                        const vId = searchData.items[0].url.split('?v=')[1];
-                        const streamRes = await fetch(`${nodo}/streams/${vId}`);
-                        if (!streamRes.ok) continue;
-                        streamData = await streamRes.json();
-                        break; // Si tuvimos éxito, salimos del bucle
+                        vId = searchData.items[0].url.split('?v=')[1];
                     }
-                } catch (err) {
-                    console.warn(`Falló el nodo ${nodo}, intentando otro...`);
                 }
+
+                // Si logramos obtener un ID, extraemos el stream de audio
+                if (vId) {
+                    const streamRes = await fetch(`${nodo}/streams/${vId}`);
+                    if (!streamRes.ok) continue;
+                    streamData = await streamRes.json();
+                    
+                    // Si el servidor nos devolvió audio, rompemos el ciclo (éxito)
+                    if (streamData && streamData.audioStreams && streamData.audioStreams.length > 0) {
+                        break; 
+                    }
+                }
+            } catch (err) {
+                console.warn(`Falló el nodo ${nodo}, intentando con el siguiente...`);
             }
         }
 
-        // Buscar el mejor formato de audio disponible
-        if (streamData && streamData.audioStreams && streamData.audioStreams.length > 0) {
-            const bestAudio = streamData.audioStreams.find(s => s.mimeType.includes('mp4')) || streamData.audioStreams[0];
-            audioSrc = bestAudio.url;
+        // Buscar el mejor formato de audio del nodo público (MP4/M4A suele cargar más rápido)
+        if (streamData && streamData.audioStreams) {
+            const bestAudio = streamData.audioStreams.find(s => s.mimeType.includes('mp4') || s.mimeType.includes('m4a')) || streamData.audioStreams[0];
+            if (bestAudio) audioSrc = bestAudio.url;
         }
 
-        if (!audioSrc) throw new Error('No se pudo encontrar el enlace de audio');
+        // 2. FALLBACK DE EMERGENCIA: Si todos los públicos fallaron, usamos tu backend de Render
+        if (!audioSrc) {
+            trackName.textContent = 'Usando servidor propio...';
+            console.log("Nodos públicos fallaron. Recurriendo a la API propia...");
+            const res = await fetch(`/api/get-audio?q=${encodeURIComponent(cancion.busqueda)}`);
+            if (res.ok) {
+                const data = await res.json();
+                audioSrc = data.url;
+            }
+        }
 
-        // Reproducir
+        // Si después de todo esto sigue sin haber audio, lanzamos el error
+        if (!audioSrc) throw new Error('Agotados todos los recursos de audio');
+
+        // Reproducir la pista
         audioEl.src = audioSrc;
         await audioEl.play();
         trackName.textContent = cancion.titulo;
@@ -859,7 +879,8 @@ async function reproducirIndice(i) {
     } catch (err) {
         console.error(err);
         trackName.textContent = 'Error al cargar';
-        toast('⚠️ Pista no disponible, saltando...');
+        toast('⚠️ No se pudo extraer el audio, saltando...');
+        // Espera un momento y salta a la siguiente
         setTimeout(siguiente, 1800);
     }
 }
