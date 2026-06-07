@@ -1,68 +1,162 @@
-const express = require('express');
-const axios = require('axios');
-const path = require('path');
-const cors = require('cors');
-const app = express();
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamiMusic</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#030303">
+    <style>
+        body { margin: 0; padding: 0; background-color: #030303; color: #ffffff; font-family: 'Roboto', -apple-system, sans-serif; padding-bottom: 90px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #030303; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
+        .search-box { display: flex; flex: 1; max-width: 400px; background: #212121; border-radius: 8px; padding: 2px; border: 1px solid #303030; }
+        .search-box input { flex: 1; background: transparent; border: none; padding: 10px 15px; color: white; font-size: 16px; outline: none; }
+        .search-box button { background: transparent; border: none; color: #aaaaaa; padding: 0 15px; cursor: pointer; font-weight: bold; transition: color 0.2s; }
+        .search-box button:hover { color: #ffffff; }
+        
+        .resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; padding: 30px; max-width: 1200px; margin: 0 auto; }
+        .tarjeta { background: transparent; cursor: pointer; transition: transform 0.2s; }
+        .tarjeta:hover { transform: scale(1.02); }
+        .tarjeta img { width: 100%; border-radius: 4px; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .titulo { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .artista { color: #aaaaaa; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-app.use(cors());
+        .reproductor-flotante { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: #212121; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; z-index: 1000; border-top: 1px solid #303030; }
+        .info-reproduccion { display: flex; align-items: center; gap: 15px; width: 30%; min-width: 200px; }
+        .info-reproduccion img { width: 40px; height: 40px; border-radius: 2px; object-fit: cover; display: none; }
+        .textos-reproductor { display: flex; flex-direction: column; }
+        .rep-titulo { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .rep-artista { font-size: 12px; color: #aaaaaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        
+        .controles-audio { flex: 1; display: flex; justify-content: center; align-items: center; }
+        audio { width: 100%; max-width: 600px; height: 40px; outline: none; }
+        audio::-webkit-media-controls-panel { background-color: #212121; }
+        audio::-webkit-media-controls-play-button, audio::-webkit-media-controls-mute-button { filter: invert(1); }
+        audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display { color: white; }
 
-// LAS RUTAS VISUALES
-app.use('/static', express.static(path.join(__dirname, 'static')));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
-app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'static', 'sw.js')));
-app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'static', 'manifest.json')));
+        #estado { grid-column: 1/-1; text-align: center; color: #aaaaaa; margin-top: 40px; }
 
-// EL EXTRACTOR BLINDADO (Arsenal de doble red)
-app.get('/api/get-audio', async (req, res) => {
-    const query = req.query.q;
-    if (!query) return res.status(400).json({ error: 'Falta la canción' });
-
-    // Mezclamos redes Invidious y Piped para que Render siempre tenga una puerta abierta
-    const arsenalNodos = [
-        { type: 'invidious', url: 'https://invidious.nerdvpn.de' },
-        { type: 'invidious', url: 'https://inv.tux.pizza' },
-        { type: 'invidious', url: 'https://invidious.fdn.fr' },
-        { type: 'piped', url: 'https://pipedapi.kavin.rocks' },
-        { type: 'piped', url: 'https://pipedapi.tokhmi.xyz' },
-        { type: 'piped', url: 'https://pipedapi.smnz.de' }
-    ];
-
-    for (let nodo of arsenalNodos) {
-        try {
-            if (nodo.type === 'invidious') {
-                // Intento con red Invidious (Le damos 8 segundos a Render para conectar)
-                const searchRes = await axios.get(`${nodo.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, { timeout: 8000 });
-                if (searchRes.data && searchRes.data.length > 0) {
-                    const videoId = searchRes.data[0].videoId;
-                    const audioUrl = `${nodo.url}/latest_version?id=${videoId}&itag=140`;
-                    console.log(`[ÉXITO] Render penetró la red Invidious por: ${nodo.url}`);
-                    return res.json({ url: audioUrl });
-                }
-            } else if (nodo.type === 'piped') {
-                // Intento con red Piped
-                const searchRes = await axios.get(`${nodo.url}/search?q=${encodeURIComponent(query)}&filter=music_songs`, { timeout: 8000 });
-                if (searchRes.data.items && searchRes.data.items.length > 0) {
-                    const videoUrl = searchRes.data.items[0].url;
-                    const videoId = videoUrl.split('?v=')[1];
-                    const streamRes = await axios.get(`${nodo.url}/streams/${videoId}`, { timeout: 8000 });
-                    
-                    if (streamRes.data.audioStreams && streamRes.data.audioStreams.length > 0) {
-                        const bestAudio = streamRes.data.audioStreams.find(s => s.mimeType.includes('mp4')) || streamRes.data.audioStreams[0];
-                        console.log(`[ÉXITO] Render penetró la red Piped por: ${nodo.url}`);
-                        return res.json({ url: bestAudio.url });
-                    }
-                }
-            }
-        } catch (error) {
-            // Si el nodo bloquea a Render o tarda mucho, se reporta y salta al siguiente
-            console.log(`[BLOQUEO] El nodo ${nodo.url} rechazó a Render. Saltando...`);
-            continue;
+        @media (max-width: 600px) {
+            .header { flex-direction: column; gap: 15px; padding: 15px; }
+            .search-box { max-width: 100%; width: 100%; }
+            .info-reproduccion { display: none; }
         }
-    }
-    
-    console.error(`[DERROTA TOTAL] Ningún servidor le dio acceso a Render para la canción: ${query}`);
-    res.status(500).json({ error: 'Todos los servidores bloquearon a Render' });
-});
+    </style>
+</head>
+<body>
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor Blindado listo en el puerto ${PORT}`));
+    <div class="header">
+        <div class="logo">
+            <div style="width: 24px; height: 24px; background: #ff0000; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid white; margin-left: 2px;"></div>
+            </div>
+            FamiMusic
+        </div>
+        <div class="search-box">
+            <input type="text" id="inputBuscar" placeholder="Buscar canciones comerciales..." onkeypress="if(event.key === 'Enter') buscarMusica()">
+            <button onclick="buscarMusica()">Buscar</button>
+        </div>
+    </div>
+
+    <div class="resultados" id="contenedorResultados">
+        <div id="estado"><h2>Explora tu música</h2></div>
+    </div>
+
+    <div class="reproductor-flotante">
+        <div class="info-reproduccion">
+            <img id="imgReproductor" src="" alt="Portada">
+            <div class="textos-reproductor">
+                <span class="rep-titulo" id="tituloReproductor">Nada en reproducción</span>
+                <span class="rep-artista" id="artistaReproductor">---</span>
+            </div>
+        </div>
+        <div class="controles-audio">
+            <audio id="reproductor" controls autoplay></audio>
+        </div>
+    </div>
+
+    <script>
+        const audio = document.getElementById('reproductor');
+        const contenedorResultados = document.getElementById('contenedorResultados');
+        const imgRep = document.getElementById('imgReproductor');
+        const titRep = document.getElementById('tituloReproductor');
+        const artRep = document.getElementById('artistaReproductor');
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
+        }
+
+        async function buscarMusica() {
+            const query = document.getElementById('inputBuscar').value;
+            if (!query) return;
+
+            contenedorResultados.innerHTML = `<div id="estado">Buscando...</div>`;
+
+            try {
+                const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=24`);
+                const data = await response.json();
+                
+                if (!data.results || data.results.length === 0) {
+                    contenedorResultados.innerHTML = `<div id="estado">No se encontró la canción.</div>`;
+                    return;
+                }
+
+                contenedorResultados.innerHTML = data.results.map(song => {
+                    const portadaHD = song.artworkUrl100.replace('100x100bb', '512x512bb');
+                    const tituloLimpio = song.trackName.replace(/'/g, "\\'");
+                    const artistaLimpio = song.artistName.replace(/'/g, "\\'");
+                    
+                    return `
+                        <div class="tarjeta" onclick="reproducir('${tituloLimpio}', '${artistaLimpio}', '${portadaHD}')">
+                            <img src="${portadaHD}" alt="Portada" loading="lazy">
+                            <div class="titulo">${song.trackName}</div>
+                            <div class="artista">${song.artistName}</div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                contenedorResultados.innerHTML = `<div id="estado" style="color: #ff4444;">Error de red al buscar.</div>`;
+            }
+        }
+
+        async function reproducir(titulo, artista, portada) {
+            imgRep.src = portada;
+            imgRep.style.display = 'block';
+            titRep.textContent = "Extrayendo audio...";
+            artRep.textContent = artista;
+            
+            audio.pause();
+            audio.removeAttribute('src');
+            
+            try {
+                // Le pasamos el trabajo sucio a Render para evitar bloqueos del navegador
+                const busquedaExacta = `${artista} ${titulo} audio`;
+                const response = await fetch(`/api/get-audio?q=${encodeURIComponent(busquedaExacta)}`);
+                const data = await response.json();
+
+                if (data.url) {
+                    audio.src = data.url;
+                    audio.play();
+                    titRep.textContent = titulo;
+
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: titulo,
+                            artist: artista,
+                            album: 'FamiMusic',
+                            artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
+                        });
+                    }
+                } else {
+                    throw new Error("No URL");
+                }
+            } catch (error) {
+                titRep.textContent = "Error";
+                alert("Render no pudo extraer el audio en este momento.");
+            }
+        }
+    </script>
+</body>
+</html>
