@@ -83,56 +83,81 @@
         const titRep = document.getElementById('tituloReproductor');
         const artRep = document.getElementById('artistaReproductor');
 
-        // Registrar Service Worker para que se pueda instalar en el iPhone
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(err => console.warn('PWA no activa:', err));
         }
 
+        // ATAQUE FRONT-END: El celular hace el trabajo, evadiendo Cloudflare con un Proxy CORS
         async function buscarMusica() {
             const query = document.getElementById('inputBuscar').value;
             if (!query) return;
 
-            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Buscando...</p>`;
+            contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">Infiltrando Audiomack...</p>`;
 
             try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const canciones = await response.json();
-
-                if (canciones.length === 0) {
+                // Preparamos el ataque pasando la petición por corsproxy.io
+                const targetUrl = `https://audiomack.com/api/search?q=${encodeURIComponent(query)}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('El proxy fue detectado');
+                
+                const data = await response.json();
+                
+                if (!data.songs || data.songs.length === 0) {
                     contenedorResultados.innerHTML = `<p style="text-align: center; color: #aaaaaa; grid-column: 1/-1; margin-top: 40px;">No se encontró nada.</p>`;
                     return;
                 }
 
-                contenedorResultados.innerHTML = canciones.map(song => `
-                    <div class="tarjeta" onclick="reproducir('${song.url}', '${song.titulo.replace(/'/g, "\\'")}', '${song.artista.replace(/'/g, "\\'")}', '${song.imagen}')">
-                        <img src="${song.imagen}?width=300" alt="Portada" loading="lazy">
-                        <div class="titulo">${song.titulo}</div>
-                        <div class="artista">${song.artista}</div>
+                // Dibujamos las tarjetas usando los datos internos crudos
+                contenedorResultados.innerHTML = data.songs.map(song => `
+                    <div class="tarjeta" onclick="reproducir('${song.artist_url}', '${song.url_slug}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.image.replace('?width=150', '?width=512')}')">
+                        <img src="${song.image.replace('?width=150', '?width=512')}" alt="Portada" loading="lazy">
+                        <div class="titulo">${song.title}</div>
+                        <div class="artista">${song.artist}</div>
                     </div>
                 `).join('');
 
             } catch (error) {
-                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Error de conexión.</p>`;
+                console.error("Fallo:", error);
+                contenedorResultados.innerHTML = `<p style="text-align: center; color: #ff4444; grid-column: 1/-1; margin-top: 40px;">Bloqueo de seguridad detectado.</p>`;
             }
         }
 
-        function reproducir(urlOriginal, titulo, artista, portada) {
+        // EL EXTRACTOR DE AUDIO DESDE EL CELULAR
+        async function reproducir(artistaUrl, slug, titulo, artista, portada) {
             imgRep.src = portada;
             imgRep.style.display = 'block';
             titRep.textContent = titulo;
             artRep.textContent = artista;
             
-            const urlApi = `/api/stream?url=${encodeURIComponent(urlOriginal)}`;
-            audio.src = urlApi;
-            audio.play();
+            try {
+                // Le pedimos a Audiomack el MP3 directo pasando por el Proxy
+                const targetUrl = `https://audiomack.com/api/music/url/song/${artistaUrl}/${slug}?extended=true`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                
+                if (data.url) {
+                    // Magia pura: El MP3 directo inyectado en el reproductor
+                    audio.src = data.url;
+                    audio.play();
 
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: titulo,
-                    artist: artista,
-                    album: 'FamiMusic',
-                    artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
-                });
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: titulo,
+                            artist: artista,
+                            album: 'FamiMusic',
+                            artwork: [ { src: portada, sizes: '512x512', type: 'image/jpeg' } ]
+                        });
+                    }
+                } else {
+                    alert("Audiomack ocultó el enlace de esta pista.");
+                }
+            } catch (error) {
+                console.error("Error al extraer:", error);
+                alert("Cloudflare bloqueó la descarga del audio.");
             }
         }
     </script>
