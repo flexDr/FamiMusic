@@ -32,43 +32,50 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// 3. EL EXTRACTOR DE AUDIO (Potenciado por Invidious)
+// 3. EL EXTRACTOR DE AUDIO (Potenciado por Piped Proxy)
 app.get('/api/stream', async (req, res) => {
     const searchQuery = req.query.url; 
     if (!searchQuery) return res.status(400).send('Falta la canción');
 
-    // Nodos Invidious de alta disponibilidad
-    const invidiousInstances = [
-        "https://invidious.nerdvpn.de",
-        "https://inv.tux.pizza",
-        "https://invidious.fdn.fr",
-        "https://invidious.slipfox.xyz"
+    // Nodos Piped que incluyen servidores Proxy para evadir el bloqueo de IP
+    const pipedInstances = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.smnz.de",
+        "https://pipedapi.tokhmi.xyz"
     ];
 
-    for (let api of invidiousInstances) {
+    for (let api of pipedInstances) {
         try {
-            // Buscamos el ID interno
-            const searchRes = await axios.get(`${api}/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`, { timeout: 6000 });
+            // 1. Buscamos la canción específica
+            const searchRes = await axios.get(`${api}/search?q=${encodeURIComponent(searchQuery)}&filter=music_songs`, { timeout: 6000 });
             
-            if (searchRes.data && searchRes.data.length > 0) {
-                const videoId = searchRes.data[0].videoId;
+            if (searchRes.data.items && searchRes.data.items.length > 0) {
+                const videoUrl = searchRes.data.items[0].url; // Ej: /watch?v=codigo
+                const videoId = videoUrl.split('?v=')[1];
                 
-                // Redirigimos directo al audio puro (M4A)
-                const audioUrl = `${api}/latest_version?id=${videoId}&itag=140`;
-                
-                console.log(`[ÉXITO] Transmitiendo "${searchQuery}" a través de: ${api}`);
-                return res.redirect(audioUrl);
+                // 2. Extraemos el stream. Piped automáticamente nos da una URL que pasa por su Proxy.
+                const streamRes = await axios.get(`${api}/streams/${videoId}`, { timeout: 6000 });
+                const audioStreams = streamRes.data.audioStreams;
+
+                if (audioStreams && audioStreams.length > 0) {
+                    // Seleccionamos el mejor formato para iPhone (m4a/mp4)
+                    const bestAudio = audioStreams.find(s => s.mimeType.includes('mp4')) || audioStreams[0];
+                    
+                    console.log(`[ÉXITO] Transmitiendo audio proxificado desde: ${api}`);
+                    // Esta URL ya engaña a Google, el iPhone la leerá sin problemas
+                    return res.redirect(bestAudio.url);
+                }
             }
         } catch (error) {
             console.log(`[FALLO] El nodo ${api} está ocupado. Saltando al siguiente...`);
-            continue; // Si un servidor falla, pasa inmediatamente al siguiente de la lista
+            continue;
         }
     }
 
-    // Si todos fallan
-    console.error(`[ERROR TOTAL] Ningún servidor pudo resolver: ${searchQuery}`);
+    // Si la red global falla
+    console.error(`[ERROR TOTAL] Ningún proxy pudo resolver: ${searchQuery}`);
     res.status(500).send('Servidores de audio ocupados.');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Motor Invidious rugiendo en el puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Motor Piped Proxy rugiendo en el puerto ${PORT}`));
