@@ -1,7 +1,7 @@
 {
   "name": "famimusic-audiomack",
   "version": "1.0.0",
-  "description": "API Gateway para Audiomack",
+  "description": "API Gateway para Audiomack - Estilo YT Music",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
